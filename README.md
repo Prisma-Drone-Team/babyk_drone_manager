@@ -43,7 +43,7 @@ babyk_drone_manager/
 
 **Supported Commands**:
 ```bash
-# Takeoff
+# Takeoff (maintains current yaw, single waypoint)
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'takeoff'}" --once
 
 # Direct movement (without path planning)
@@ -52,7 +52,7 @@ ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'go(x,y,z)'}" -
 # Movement with path planning
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(frame_name)'}" --once
 
-# Landing
+# Landing (maintains current yaw, single waypoint)
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once
 
 # Emergency stop

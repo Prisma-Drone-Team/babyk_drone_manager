@@ -318,12 +318,21 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& par
     geometry_msgs::msg::Pose takeoff_pose;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
-        takeoff_pose = current_pose_;  // Keep current orientation
+        takeoff_pose = current_pose_;  // Keep current position and orientation
     }
     takeoff_pose.position.z = takeoff_altitude_;  // Only change altitude
 
-    // Create direct path for takeoff and send to traj_interp
-    nav_msgs::msg::Path takeoff_path = create_direct_path(takeoff_pose);
+    // Create SINGLE waypoint path for takeoff to avoid yaw calculation
+    nav_msgs::msg::Path takeoff_path;
+    takeoff_path.header.stamp = this->get_clock()->now();
+    takeoff_path.header.frame_id = "map";
+    
+    // Add ONLY the target position (no start position to avoid horizontal movement calculation)
+    geometry_msgs::msg::PoseStamped target_pose;
+    target_pose.header = takeoff_path.header;
+    target_pose.pose = takeoff_pose;
+    takeoff_path.poses.push_back(target_pose);
+    
     traj_interp_path_pub_->publish(takeoff_path);
 
     {
@@ -331,7 +340,7 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& par
         overall_status_ = "TAKING_OFF";
     }
 
-    RCLCPP_INFO(get_logger(), "Sent takeoff command to traj_interp: altitude %.3f", takeoff_altitude_);
+    RCLCPP_INFO(get_logger(), "Sent takeoff command to traj_interp: altitude %.3f (single waypoint)", takeoff_altitude_);
 }
 
 void MoveManagerNode::handle_land_command(const std::vector<std::string>& parts) {
@@ -349,8 +358,17 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& parts)
     }
     land_pose.position.z = 0.0; // Only change altitude to land at ground level
 
-    // Create direct path for landing and send to traj_interp
-    nav_msgs::msg::Path land_path = create_direct_path(land_pose);
+    // Create SINGLE waypoint path for landing to avoid yaw calculation
+    nav_msgs::msg::Path land_path;
+    land_path.header.stamp = this->get_clock()->now();
+    land_path.header.frame_id = "map";
+    
+    // Add ONLY the target position (no start position to avoid horizontal movement calculation)
+    geometry_msgs::msg::PoseStamped target_pose;
+    target_pose.header = land_path.header;
+    target_pose.pose = land_pose;
+    land_path.poses.push_back(target_pose);
+    
     traj_interp_path_pub_->publish(land_path);
     
     {
@@ -358,7 +376,7 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& parts)
         overall_status_ = "LANDING";
     }
     
-    RCLCPP_INFO(get_logger(), "Sent land command to traj_interp");
+    RCLCPP_INFO(get_logger(), "Sent land command to traj_interp (single waypoint)");
 }
 
 void MoveManagerNode::handle_stop_command() {
