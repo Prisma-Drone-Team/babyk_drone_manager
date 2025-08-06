@@ -57,6 +57,9 @@ ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once
 
 # Emergency stop
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once
+
+# Command a direct tilting pitch setpoint (TODO create smooth traj for pitch-tilting)
+ros2 topic pub --once /fmu/in/tilting_mc_desired_angles px4_msgs/msg/TiltingMcDesiredAngles "{timestamp: $(($(date +%s%N)/1000)), roll_body: 0.1, pitch_body: -0.1}" --once
 ```
 
 ## Launch Files
