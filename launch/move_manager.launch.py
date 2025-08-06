@@ -11,7 +11,7 @@ def generate_launch_description():
     config_file_arg = DeclareLaunchArgument(
         'config_file',
         default_value=PathJoinSubstitution([
-            FindPackageShare('drone_menager'),
+            FindPackageShare('babyk_drone_manager'),
             'config',
             'move_manager_params.yaml'
         ]),
@@ -32,7 +32,7 @@ def generate_launch_description():
 
     # Move manager node
     move_manager_node = Node(
-        package='drone_menager',
+        package='babyk_drone_manager',
         executable='move_manager_node',
         name='move_manager_node',
         parameters=[

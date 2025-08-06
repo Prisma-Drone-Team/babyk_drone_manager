@@ -45,7 +45,7 @@ def generate_launch_description():
     move_manager_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('drone_menager'),
+                FindPackageShare('babyk_drone_manager'),
                 'launch',
                 'move_manager.launch.py'
             ])

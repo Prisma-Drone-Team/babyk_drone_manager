@@ -1,90 +1,90 @@
 # Drone Manager
 
-**Sistema di gestione centralizzato per il controllo del drone e coordinamento dei componenti.**
+**Centralized management system for drone control and component coordination.**
 
-## Panoramica
+## Overview
 
-Il `drone_menager` è il pacchetto principale che gestisce l'intero sistema del drone, coordinando tutti i componenti e fornendo un'interfaccia unificata per il controllo. Centralizza launch files, configurazioni e file TMUX per una gestione semplificata del sistema.
+The `babyk_drone_manager` is the main package that manages the entire drone system, coordinating all components and providing a unified interface for control. It centralizes launch files, configurations, and TMUX files for simplified system management.
 
-## Architettura
+## Architecture
 
 ```
-drone_menager/
+babyk_drone_manager/
 ├── src/
-│   └── move_manager_node.cpp      # Nodo di gestione movimenti
-├── include/drone_menager/
-│   └── move_manager_node.h        # Header del move manager
-├── launch/                        # Launch files centralizzati
-│   ├── move_manager.launch.py     # Gestione movimenti
-│   ├── full_system.launch.py      # Sistema completo
-│   ├── rtabmap_sim.launch.py      # SLAM simulazione
-│   ├── tf_static_sim.launch.py    # TF statici simulazione
-│   └── px4_tf_pub_simulation.launch.py # TF PX4 simulazione
-├── config/                        # Configurazioni centralizzate
-│   ├── move_manager_params.yaml   # Parametri volo reale
-│   └── move_manager_simulation.yaml # Parametri simulazione
+│   └── move_manager_node.cpp      # Movement management node
+├── include/babyk_drone_manager/
+│   └── move_manager_node.h        # Move manager header
+├── launch/                        # Centralized launch files
+│   ├── move_manager.launch.py     # Movement management
+│   ├── full_system.launch.py      # Complete system
+│   ├── rtabmap_sim.launch.py      # SLAM simulation
+│   ├── tf_static_sim.launch.py    # Static TF simulation
+│   └── px4_tf_pub_simulation.launch.py # PX4 TF simulation
+├── config/                        # Centralized configurations
+│   ├── move_manager_params.yaml   # Real flight parameters
+│   └── move_manager_simulation.yaml # Simulation parameters
 ├── rviz/
-│   └── leo.rviz                   # Configurazione RViz
-├── simulation.yml                 # TMUX simulazione
-└── flight.yml                    # TMUX volo reale
+│   └── leo.rviz                   # RViz configuration
+├── simulation.yml                 # TMUX simulation
+└── flight.yml                    # TMUX real flight
 ```
 
-## Componenti Principali
+## Main Components
 
 ### Move Manager Node
-**Nodo**: `move_manager_node`  
-**Descrizione**: Coordina i movimenti del drone e gestisce l'interfaccia di comando.
+**Node**: `move_manager_node`  
+**Description**: Coordinates drone movements and manages command interface.
 
-**Topics Principali**:
-- `/move_manager/command` (input) - Comandi di movimento
-- `/move_manager/status` (output) - Stato del sistema
-- `/move_base_simple/goal` (output) - Goal per path planner
-- `/trajectory_path` (output) - Traiettorie per interpolator
+**Main Topics**:
+- `/move_manager/command` (input) - Movement commands
+- `/move_manager/status` (output) - System status
+- `/move_base_simple/goal` (output) - Goals for path planner
+- `/trajectory_path` (output) - Trajectories for interpolator
 
-**Comandi Supportati**:
+**Supported Commands**:
 ```bash
-# Decollo
+# Takeoff
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'takeoff'}" --once
 
-# Movimento diretto (senza path planning)
+# Direct movement (without path planning)
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'go(x,y,z)'}" --once
 
-# Movimento con path planning
+# Movement with path planning
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(frame_name)'}" --once
 
-# Atterraggio
+# Landing
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once
 
-# Stop emergenza
+# Emergency stop
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once
 ```
 
 ## Launch Files
 
-### Sistema Completo
+### Complete System
 ```bash
-ros2 launch drone_menager full_system.launch.py
+ros2 launch babyk_drone_manager full_system.launch.py
 ```
-Lancia tutti i componenti: move_manager + path_planner.
+Launches all components: move_manager + path_planner.
 
 ### Move Manager
 ```bash
-ros2 launch drone_menager move_manager.launch.py config_file:=config/move_manager_params.yaml simulation:=false
+ros2 launch babyk_drone_manager move_manager.launch.py config_file:=config/move_manager_params.yaml simulation:=false
 ```
 
-### Simulazione RTABMap
+### RTABMap Simulation
 ```bash
-ros2 launch drone_menager rtabmap_sim.launch.py use_sim_time:=true
+ros2 launch babyk_drone_manager rtabmap_sim.launch.py use_sim_time:=true
 ```
 
-## Configurazioni TMUX
+## TMUX Configurations
 
-### Simulazione Completa
+### Complete Simulation
 ```bash
 tmuxinator start -p simulation.yml
 ```
 
-**Sistema avviato**:
+**System started**:
 - PX4 SITL + Gazebo
 - MicroXRCE Agent
 - Gazebo-ROS Bridge
@@ -96,21 +96,21 @@ tmuxinator start -p simulation.yml
 - Trajectory Interpolator
 - PlotJuggler
 
-### Volo Reale
+### Real Flight
 ```bash
 tmuxinator start -p flight.yml
 ```
 
-**Sistema avviato**:
+**System started**:
 - Move Manager
 - Path Planner  
 - Trajectory Interpolator
 - SLAM (Leonardo)
 - RViz
 
-## Parametri di Configurazione
+## Configuration Parameters
 
-### move_manager_params.yaml (Volo Reale)
+### move_manager_params.yaml (Real Flight)
 ```yaml
 move_manager_node:
   ros__parameters:
@@ -120,87 +120,87 @@ move_manager_node:
     simulation: false
 ```
 
-### move_manager_simulation.yaml (Simulazione)
+### move_manager_simulation.yaml (Simulation)
 ```yaml
 move_manager_node:
   ros__parameters:
     command_topic: "/move_manager/command"
     status_topic: "/move_manager/status"
     takeoff_altitude: 1.5
-    simulation: true  # Abilita pubblicazione TF
+    simulation: true  # Enables TF publishing
 ```
 
-## Integrazione Sistema
+## System Integration
 
-Il `drone_menager` coordina:
+The `babyk_drone_manager` coordinates:
 
-1. **Path Planner** (`path_planner`) - Pianificazione percorsi con OMPL+FCL
-2. **Trajectory Interpolator** (`traj_interp`) - Interpolazione e resampling traiettorie
-3. **Drone Odometry** (`drone_odometry2`) - Pubblicazione TF e odometria PX4
-4. **RTABMap** - SLAM visivo per mapping ambientale
+1. **Path Planner** (`path_planner`) - Path planning with OMPL+FCL
+2. **Trajectory Interpolator** (`traj_interp`) - Interpolation and trajectory resampling
+3. **Drone Odometry** (`drone_odometry2`) - TF publishing and PX4 odometry
+4. **RTABMap** - Visual SLAM for environmental mapping
 
-## Stati del Sistema
+## System States
 
-- `IDLE` - Sistema pronto
-- `PLANNING_PATH` - Pianificazione percorso in corso
-- `EXECUTING_TRAJECTORY` - Esecuzione traiettoria
-- `TAKING_OFF` - Decollo in corso
-- `LANDING` - Atterraggio in corso
-- `STOPPED` - Sistema fermato
-- `ERROR_*` - Stati di errore vari
+- `IDLE` - System ready
+- `PLANNING_PATH` - Path planning in progress
+- `EXECUTING_TRAJECTORY` - Trajectory execution
+- `TAKING_OFF` - Takeoff in progress
+- `LANDING` - Landing in progress
+- `STOPPED` - System stopped
+- `ERROR_*` - Various error states
 
 ## Troubleshooting
 
-### Problemi Comuni
+### Common Issues
 
-1. **Move Manager non trovato**:
+1. **Move Manager not found**:
    ```bash
-   colcon build --packages-select drone_menager
+   colcon build --packages-select babyk_drone_manager
    source install/setup.bash
    ```
 
-2. **TF non pubblicati in simulazione**:
-   - Verificare `simulation: true` nei parametri
-   - Controllare che px4_tf_pub_simulation.launch.py sia attivo
+2. **TF not published in simulation**:
+   - Verify `simulation: true` in parameters
+   - Check that px4_tf_pub_simulation.launch.py is active
 
-3. **Comandi non risponde**:
-   - Verificare topic: `ros2 topic echo /move_manager/status`
-   - Controllare odometria: `ros2 topic echo /px4/odometry/out`
+3. **Commands not responding**:
+   - Verify topic: `ros2 topic echo /move_manager/status`
+   - Check odometry: `ros2 topic echo /px4/odometry/out`
 
-4. **Path planning fallisce**:
-   - Verificare octomap: `ros2 topic echo /octomap_binary`
-   - Controllare limiti workspace in path_planner config
+4. **Path planning fails**:
+   - Verify octomap: `ros2 topic echo /octomap_binary`
+   - Check workspace limits in path_planner config
 
-## Dipendenze
+## Dependencies
 
-**Pacchetti ROS 2**:
+**ROS 2 Packages**:
 - `rclcpp`, `nav_msgs`, `geometry_msgs`, `std_msgs`
 - `tf2`, `tf2_ros`, `tf2_geometry_msgs`
 - `rtabmap_ros`, `rtabmap_util`, `sensor_msgs`
 - `image_transport`, `visualization_msgs`
 
-**Pacchetti Custom**:
-- `path_planner` - Pianificazione percorsi
-- `traj_interp` - Interpolazione traiettorie  
-- `drone_odometry2` - TF e odometria PX4
+**Custom Packages**:
+- `path_planner` - Path planning
+- `traj_interp` - Trajectory interpolation  
+- `drone_odometry2` - TF and PX4 odometry
 
-## Build e Installazione
+## Build and Installation
 
 ```bash
 # Build
 cd ~/ros2_ws
-colcon build --packages-select drone_menager
+colcon build --packages-select babyk_drone_manager
 
 # Source
 source install/setup.bash
 
-# Verifica installazione
-ros2 launch drone_menager move_manager.launch.py --help
+# Verify installation
+ros2 launch babyk_drone_manager move_manager.launch.py --help
 ```
 
-## Note Sviluppo
+## Development Notes
 
-- **Modalità Simulazione**: Abilita pubblicazione TF automatica per integrazioni Gazebo
-- **Modalità Reale**: Disabilita TF publishing, usa hardware reale
-- **Replan Logic**: Limite massimo 5 tentativi per path planning
-- **Emergency Stop**: Comando `stop` interrompe immediatamente ogni movimento
+- **Simulation Mode**: Enables automatic TF publishing for Gazebo integrations
+- **Real Mode**: Disables TF publishing, uses real hardware
+- **Replan Logic**: Maximum 5 attempts for path planning
+- **Emergency Stop**: `stop` command immediately interrupts any movement

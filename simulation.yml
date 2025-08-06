@@ -22,19 +22,19 @@ windows:
     - shell_command:
         - sleep 5  
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch drone_menager rtabmap_sim.launch.py use_sim_time:=true
+        - ros2 launch babyk_drone_manager rtabmap_sim.launch.py use_sim_time:=true
     - shell_command:
         - sleep 5
         - cd ~/ros2_ws && source install/setup.bash
-        - LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liboctomap.so ros2 run rviz2 rviz2 -d ~/ros2_ws/src/pkg/drone_menager/rviz/leo.rviz --ros-args -r use_sim_time:=true
+        - LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liboctomap.so ros2 run rviz2 rviz2 -d ~/ros2_ws/src/pkg/babyk_drone_manager/rviz/leo.rviz --ros-args -r use_sim_time:=true
     - shell_command:
         - sleep 5
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch drone_menager tf_static_sim.launch.py use_sim_time:=true
+        - ros2 launch babyk_drone_manager tf_static_sim.launch.py use_sim_time:=true
     - shell_command:
         - sleep 5
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch drone_menager px4_tf_pub_simulation.launch.py use_sim_time:=true
+        - ros2 launch babyk_drone_manager px4_tf_pub_simulation.launch.py use_sim_time:=true
 - window_name: path_planning
   layout: tiled
   panes:
@@ -45,7 +45,7 @@ windows:
     - shell_command:
         - sleep 15
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch drone_menager move_manager.launch.py config_file:=/root/ros2_ws/src/pkg/drone_menager/config/move_manager_simulation.yaml simulation:=true
+        - ros2 launch babyk_drone_manager move_manager.launch.py config_file:=/root/ros2_ws/src/pkg/babyk_drone_manager/config/move_manager_simulation.yaml simulation:=true
     - shell_command:
         - sleep 35
         - cd ~/ros2_ws && source install/setup.bash

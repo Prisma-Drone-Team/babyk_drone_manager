@@ -6,7 +6,7 @@ windows:
     panes:
     - shell_command:
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch drone_menager move_manager.launch.py config_file:=config/move_manager_params.yaml
+        - ros2 launch babyk_drone_manager move_manager.launch.py config_file:=config/move_manager_params.yaml
     - shell_command:
         - sleep 5
         - cd ~/ros2_ws && source install/setup.bash
@@ -22,7 +22,7 @@ windows:
     - shell_command:
         - sleep 15
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run rviz2 rviz2 -d src/pkg/drone_menager/rviz/leo.rviz
+        - ros2 run rviz2 rviz2 -d src/pkg/babyk_drone_manager/rviz/leo.rviz
     - shell_command:
         - sleep 20
         - cd ~/ros2_ws && source install/setup.bash
