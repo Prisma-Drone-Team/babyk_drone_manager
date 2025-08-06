@@ -1,0 +1,89 @@
+session_name: path_planner_simulation
+socket_name: drone_pathplanner
+environment:
+  ROS_DOMAIN_ID: "17"
+pre_window: 
+windows:
+- window_name: px4
+  layout: tiled
+  panes:
+    - shell_command:            
+        # - cd ~/PX4-Autopilot
+        # - make px4_sitl gz_x500_depth
+        - cd ~/PX4_neabotics
+        - make px4_sitl gz_baby_k
+    - shell_command:
+        - sleep 1          
+        - MicroXRCEAgent udp4 -p 8888
+    - shell_command:
+        - sleep 2           
+        - ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo /camera@sensor_msgs/msg/Image@gz.msgs.Image /depth_camera@sensor_msgs/msg/Image@gz.msgs.Image 
+          /model/baby_k_0/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry  /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock
+    - shell_command:
+        - sleep 5  
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch drone_menager rtabmap_sim.launch.py use_sim_time:=true
+    - shell_command:
+        - sleep 5
+        - cd ~/ros2_ws && source install/setup.bash
+        - LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liboctomap.so ros2 run rviz2 rviz2 -d ~/ros2_ws/src/pkg/drone_menager/rviz/leo.rviz --ros-args -r use_sim_time:=true
+    - shell_command:
+        - sleep 5
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch drone_menager tf_static_sim.launch.py use_sim_time:=true
+    - shell_command:
+        - sleep 5
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch drone_menager px4_tf_pub_simulation.launch.py use_sim_time:=true
+- window_name: path_planning
+  layout: tiled
+  panes:
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 run traj_interp trajectory_interpolator --ros-args --params-file /root/ros2_ws/src/pkg/traj_interp/config/trajectory_interpolator_simulation.yaml -r use_sim_time:=true
+    - shell_command:
+        - sleep 15
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch drone_menager move_manager.launch.py config_file:=/root/ros2_ws/src/pkg/drone_menager/config/move_manager_simulation.yaml simulation:=true
+    - shell_command:
+        - sleep 35
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /trajectory_interpolator/status 
+    - shell_command:
+        - sleep 20
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch path_planner path_planner.launch.py config_file:=/root/ros2_ws/src/pkg/path_planner/config/path_planner_simulation.yaml
+    - shell_command:
+        - sleep 40
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 run plotjuggler plotjuggler
+    - shell_command:
+        - sleep 40
+        - cd ~/ros2_ws && source install/setup.bash
+        #- ros2 topic pub --once /fmu/in/tilting_mc_desired_angles px4_msgs/msg/TiltingMcDesiredAngles "{timestamp: $(($(date +%s%N)/1000)), roll_body: 0.0, pitch_body: -0.1}"
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'takeoff'}" --once        # to takeoff
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'go(10.0,5.0,3.0)'}" --once # direct movement without path planning
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(goal1)'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once           # to land
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once # to stop trajectory
+# - window_name: monitoring
+#   layout: tiled
+#   panes:
+#     - shell_command:
+#         - sleep 30
+#         - cd ~/ros2_ws && source install/setup.bash
+#         - ros2 topic echo /trajectory_path --ros-args -r use_sim_time:=true
+#     - shell_command:
+#         - sleep 30
+#         - cd ~/ros2_ws && source install/setup.bash
+#         - ros2 topic echo /trajectory_interpolator/status --ros-args -r use_sim_time:=true
+#     - shell_command:
+#         - sleep 30
+#         - cd ~/ros2_ws && source install/setup.bash
+#         # Monitor octomap for path planning
+#         - ros2 topic echo /octomap_binary --field data.data | head -c 100 --ros-args -r use_sim_time:=true
+#     - shell_command:
+#         - sleep 30
+#         - cd ~/ros2_ws && source install/setup.bash
+#         #- ros2 run plotjuggler plotjuggler

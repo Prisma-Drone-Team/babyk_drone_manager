@@ -1,0 +1,27 @@
+move_manager_node:
+  ros__parameters:
+    # Simulation parameters
+    use_sim_time: true
+    # Command topics
+    command_topic: "/move_manager/command"
+    status_topic: "/move_manager/status"
+    
+    # Path planner interface
+    path_planner_goal_topic: "/move_base_simple/goal"
+    path_planner_status_topic: "/path_planner/status"
+    
+    # Trajectory interpolator interface  
+    traj_interp_path_topic: "/trajectory_path"
+    traj_interp_status_topic: "/trajectory_interpolator/status"
+    
+    # Path planning output
+    planned_path_topic: "/trajectory_path"
+    
+    # Sensor input (simulation topics)
+    odometry_topic: "/model/baby_k_0/odometry"
+    
+    # Flight parameters
+    takeoff_altitude: 1.5  # meters
+    
+    # Simulation parameters
+    simulation: true  # Enable TF publishing for simulation

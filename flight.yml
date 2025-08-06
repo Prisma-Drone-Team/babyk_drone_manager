@@ -1,0 +1,33 @@
+session_name: path_planner_flight
+socket_name: drone_pathplanner_real
+windows:
+  - window_name: main
+    layout: tiled
+    panes:
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch drone_menager move_manager.launch.py config_file:=config/move_manager_params.yaml
+    - shell_command:
+        - sleep 5
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch path_planner path_planner.launch.py config_file:=config/path_planner_flight.yaml
+    - shell_command:
+        - sleep 5
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch traj_interp trajectory_interpolator.launch.py config_file:=config/trajectory_interpolator_flight.yaml
+    - shell_command:
+        - sleep 8
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch drone_odometry2 slam_leonardo.launch.py
+    - shell_command:
+        - sleep 15
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 run rviz2 rviz2 -d src/pkg/drone_menager/rviz/leo.rviz
+    - shell_command:
+        - sleep 20
+        - cd ~/ros2_ws && source install/setup.bash
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'takeoff'}" --once        # to takeoff
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'go(10.0,5.0,3.0)'}" --once # direct movement without path planning
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(goal1)'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once           # to land
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once           # to stop trajectory
