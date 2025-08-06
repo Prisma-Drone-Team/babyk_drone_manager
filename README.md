@@ -81,7 +81,7 @@ ros2 launch babyk_drone_manager rtabmap_sim.launch.py use_sim_time:=true
 
 ### Complete Simulation
 ```bash
-tmuxinator start -p simulation.yml
+tmuxp load simulation.yml
 ```
 
 **System started**:
