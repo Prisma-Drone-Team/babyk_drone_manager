@@ -98,7 +98,7 @@ tmuxp load simulation.yml
 
 ### Real Flight
 ```bash
-tmuxinator start -p flight.yml
+tmuxp load flight.yml
 ```
 
 **System started**:
