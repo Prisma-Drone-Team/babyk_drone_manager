@@ -60,7 +60,38 @@ ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once
 
 # Command a direct tilting pitch setpoint (TODO create smooth traj for pitch-tilting)
 ros2 topic pub --once /fmu/in/tilting_mc_desired_angles px4_msgs/msg/TiltingMcDesiredAngles "{timestamp: $(($(date +%s%N)/1000)), roll_body: 0.1, pitch_body: -0.1}" --once
+
+# Teleop control (activates joystick control)
+ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'teleop'}" --once
 ```
+
+### Teleop Integration
+
+The move manager includes automatic joystick detection and teleop coordination:
+
+**Joystick Detection**:
+- Automatically detects when a joystick is connected to `/joy` topic
+- Publishes joystick status on `/move_manager/joystick_connected` (Bool)
+- When joystick detected, teleop mode can be activated
+
+**Teleop Command**:
+- `teleop` command activates joystick control mode
+- Stops any current path execution
+- Publishes teleop activation flag on `/move_manager/teleop_active` (Bool)
+- Seamlessly integrates with the enhanced_teleop node and trajectory interpolator
+
+**Teleop Integration Flow**:
+1. Move manager detects joystick presence
+2. User sends `teleop` command to activate teleop mode
+3. Move manager publishes `teleop_active: true` flag
+4. Enhanced_teleop node responds to flag and begins velocity control
+5. Trajectory interpolator integrates velocity increments for smooth control
+
+**Related Topics**:
+- `/joy` (input) - Joystick messages for detection
+- `/move_manager/joystick_connected` (output) - Joystick status
+- `/move_manager/teleop_active` (output) - Teleop mode activation flag
+- `/teleop/velocity_increments` (input) - Velocity commands from teleop
 
 ## Launch Files
 

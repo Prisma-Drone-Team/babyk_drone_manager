@@ -17,6 +17,7 @@ move_manager_node:
     
     # Sensor input
     odometry_topic: "/px4/odometry/out"
+    joy_topic: "/joy"
     
     # Flight parameters
     takeoff_altitude: 1.5  # meters

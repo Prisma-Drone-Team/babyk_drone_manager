@@ -9,7 +9,9 @@ MoveManagerNode::MoveManagerNode()
       running_(true),
       path_planner_status_("IDLE"),
       traj_interp_status_("IDLE"),
-      overall_status_("IDLE") {
+      overall_status_("IDLE"),
+      teleop_active_(false),
+      joy_available_(false) {
     
     // Declare parameters
     declare_parameters();
@@ -23,6 +25,7 @@ MoveManagerNode::MoveManagerNode()
     traj_interp_status_topic_ = this->get_parameter("traj_interp_status_topic").as_string();
     planned_path_topic_ = this->get_parameter("planned_path_topic").as_string();
     odometry_topic_ = this->get_parameter("odometry_topic").as_string();
+    joy_topic_ = this->get_parameter("joy_topic").as_string();
     takeoff_altitude_ = this->get_parameter("takeoff_altitude").as_double();
     simulation_mode_ = this->get_parameter("simulation").as_bool();
 
@@ -56,6 +59,8 @@ MoveManagerNode::MoveManagerNode()
         traj_interp_path_topic_, 10);
     
     status_pub_ = this->create_publisher<std_msgs::msg::String>(status_topic_, 10);
+    
+    teleop_active_pub_ = this->create_publisher<std_msgs::msg::Bool>("/move_manager/teleop_active", 10);
 
     // Initialize subscribers
     rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
@@ -75,6 +80,9 @@ MoveManagerNode::MoveManagerNode()
 
     odometry_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         odometry_topic_, qos, std::bind(&MoveManagerNode::odometry_callback, this, std::placeholders::_1));
+    
+    joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
+        joy_topic_, 10, std::bind(&MoveManagerNode::joy_callback, this, std::placeholders::_1));
 
     // Start command processor thread
     command_processor_thread_ = std::thread(&MoveManagerNode::command_processor, this);
@@ -99,6 +107,7 @@ void MoveManagerNode::declare_parameters() {
     this->declare_parameter("traj_interp_status_topic", "/trajectory_interpolator/status");
     this->declare_parameter("planned_path_topic", "/trajectory_path");
     this->declare_parameter("odometry_topic", "/px4/odometry/out");
+    this->declare_parameter("joy_topic", "/joy");
 
     // Flight parameters
     this->declare_parameter("takeoff_altitude", 1.5);
@@ -123,6 +132,14 @@ void MoveManagerNode::traj_interp_status_callback(const std_msgs::msg::String::S
     std::lock_guard<std::mutex> lock(state_mutex_);
     traj_interp_status_ = msg->data;
     update_overall_status();
+}
+
+void MoveManagerNode::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
+    // Semplice detection del joystick - se arrivano messaggi, è disponibile
+    if (!joy_available_) {
+        joy_available_ = true;
+        RCLCPP_INFO(get_logger(), "Joystick detected - teleop functionality enabled");
+    }
 }
 
 void MoveManagerNode::planned_path_callback(const nav_msgs::msg::Path::SharedPtr msg) {
@@ -224,6 +241,28 @@ void MoveManagerNode::command_processor() {
 void MoveManagerNode::process_command(const std::vector<std::string>& command_parts) {
     const std::string& command = command_parts[0];
     
+    // Se è attivo il teleop e arriva un comando diverso da teleop, fermalo
+    if (teleop_active_ && command != "teleop") {
+        RCLCPP_INFO(get_logger(), "Stopping teleop to execute command: %s", command.c_str());
+        teleop_active_ = false;
+        
+        // Disattiva la modalità teleop nel traj_interp
+        std_msgs::msg::Bool teleop_flag;
+        teleop_flag.data = false;
+        teleop_active_pub_->publish(teleop_flag);
+        RCLCPP_INFO(get_logger(), "Published teleop_active=false to restore normal trajectory control");
+        
+        // Usa la posizione corrente come ultima posizione teleop
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            last_teleop_pose_ = current_pose_;
+            overall_status_ = "TELEOP_STOPPED";
+        }
+        
+        // Piccola pausa per permettere al traj_interp di processare il cambio modalità
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    
     if (command == "flyto") {
         handle_flyto_command(command_parts);
     } else if (command == "go") {
@@ -234,6 +273,8 @@ void MoveManagerNode::process_command(const std::vector<std::string>& command_pa
         handle_land_command(command_parts);
     } else if (command == "stop") {
         handle_stop_command();
+    } else if (command == "teleop") {
+        handle_teleop_command();
     } else {
         RCLCPP_ERROR(get_logger(), "Unknown command: %s", command.c_str());
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -318,7 +359,14 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& par
     geometry_msgs::msg::Pose takeoff_pose;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
-        takeoff_pose = current_pose_;  // Keep current position and orientation
+        // Use last teleop pose if available and valid, otherwise use current odometry
+        if (last_teleop_pose_.position.x != 0.0 || last_teleop_pose_.position.y != 0.0 || last_teleop_pose_.position.z != 0.0) {
+            takeoff_pose = last_teleop_pose_;
+            RCLCPP_INFO(get_logger(), "Takeoff from last teleop position: [%.3f, %.3f, %.3f]", 
+                       takeoff_pose.position.x, takeoff_pose.position.y, takeoff_pose.position.z);
+        } else {
+            takeoff_pose = current_pose_;  // Keep current position and orientation
+        }
     }
     takeoff_pose.position.z = takeoff_altitude_;  // Only change altitude
 
@@ -354,7 +402,14 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& parts)
     geometry_msgs::msg::Pose land_pose;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
-        land_pose = current_pose_;  // Keep current orientation
+        // Use last teleop pose if available and valid, otherwise use current odometry
+        if (last_teleop_pose_.position.x != 0.0 || last_teleop_pose_.position.y != 0.0 || last_teleop_pose_.position.z != 0.0) {
+            land_pose = last_teleop_pose_;
+            RCLCPP_INFO(get_logger(), "Landing from last teleop position: [%.3f, %.3f, %.3f]", 
+                       land_pose.position.x, land_pose.position.y, land_pose.position.z);
+        } else {
+            land_pose = current_pose_;  // Keep current orientation
+        }
     }
     land_pose.position.z = 0.0; // Only change altitude to land at ground level
 
@@ -468,6 +523,12 @@ nav_msgs::msg::Path MoveManagerNode::create_direct_path(const geometry_msgs::msg
 }
 
 void MoveManagerNode::update_overall_status() {
+    // Se il teleop è attivo, mantieni questo stato prioritario
+    if (teleop_active_) {
+        overall_status_ = "TELEOP_ACTIVE";
+        return;
+    }
+    
     // Logic to combine statuses from path planner and traj interp
     if (path_planner_status_ == "PLANNING") {
         overall_status_ = "PLANNING_PATH";
@@ -526,6 +587,55 @@ void MoveManagerNode::static_tf_pub() {
     t.transform.rotation.w = 0.0;
 
     static_tf_broadcaster_->sendTransform(t);
+}
+
+void MoveManagerNode::handle_teleop_command() {
+    // Verifica se il joystick è disponibile
+    if (!joy_available_) {
+        RCLCPP_ERROR(get_logger(), "Cannot activate teleop mode - joystick not detected!");
+        RCLCPP_ERROR(get_logger(), "Please ensure joystick is connected and joy_node is running");
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "ERROR_NO_JOYSTICK";
+        return;
+    }
+    
+    if (!odometry_received_) {
+        RCLCPP_ERROR(get_logger(), "Cannot activate teleop mode - no odometry received");
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "ERROR_NO_ODOMETRY";
+        return;
+    }
+    
+    RCLCPP_INFO(get_logger(), "Activating teleop mode - joystick control enabled");
+    
+    // PRIMA: Ferma la traiettoria attuale con path vuoto
+    nav_msgs::msg::Path empty_path;
+    empty_path.header.stamp = this->get_clock()->now();
+    empty_path.header.frame_id = "map";
+    traj_interp_path_pub_->publish(empty_path);
+    RCLCPP_INFO(get_logger(), "Sent empty path to stop current trajectory");
+    
+    // POI: Pubblica flag teleop_active per coordinare traj_interp
+    std_msgs::msg::Bool teleop_flag;
+    teleop_flag.data = true;
+    teleop_active_pub_->publish(teleop_flag);
+    RCLCPP_INFO(get_logger(), "Published teleop_active=true to coordinate trajectory_interpolator");
+    
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        teleop_active_ = true;
+        overall_status_ = "TELEOP_ACTIVE";
+        
+        // Stop any ongoing trajectory by setting status
+        path_planner_status_ = "IDLE";
+        traj_interp_status_ = "TELEOP_MODE";  // Nuovo stato
+        
+        // Save current position as starting teleop position
+        last_teleop_pose_ = current_pose_;
+    }
+    
+    RCLCPP_INFO(get_logger(), "Teleop mode activated - use joystick to control the drone");
+    RCLCPP_INFO(get_logger(), "Send any other command (takeoff, land, go, etc.) to exit teleop mode");
 }
 
 int main(int argc, char* argv[]) {
