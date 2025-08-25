@@ -44,7 +44,8 @@ def generate_launch_description():
     remappings=[
           ('rgb/image', '/camera'),
           ('rgb/camera_info', '/camera_info'),
-          ('depth/image', '/depth_camera')]
+          ('depth/image', '/depth_camera'),
+          ('odom', '/odometry/filtered')]  # Remap rtabmap odometry to /odometry/filtered
 
     return LaunchDescription([
 

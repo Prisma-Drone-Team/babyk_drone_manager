@@ -9,7 +9,6 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 def generate_launch_description():
 
-
     return LaunchDescription([
         # Node(
         #     package='tf2_ros', executable='static_transform_publisher', output='screen',
@@ -21,16 +20,16 @@ def generate_launch_description():
         # # OAk-D Lite
         # Node(
         #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0.15', '0.03', ' 0.202', '-1.5707','0', '-1.5707', 'base_link', 'x500_depth_0/OakD-Lite/base_link/StereoOV7251']),
+        #     arguments=['0.15', '0.03', '0.0', '-1.5707','0', '-1.5707', 'base_link', 'x500_depth_0/OakD-Lite/base_link/StereoOV7251']),
         # Node(
         #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0.15', '0.03', ' 0.202',  '-1.5707', '0', '-1.5707', 'base_link', 'x500_depth_0/OakD-Lite/base_link/IMX214']),
+        #     arguments=['0.15', '0.03', '0.0',  '-1.5707', '0', '-1.5707', 'base_link', 'x500_depth_0/OakD-Lite/base_link/IMX214']),
         # Node(
         #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0.15', '0.03', ' 0.202', '-1.5707','0', '-1.5707', 'odom', 'odom/x500_depth_0/OakD-Lite/base_link/StereoOV7251']),
+        #     arguments=['0.15', '0.03', '0.0', '-1.5707','0', '-1.5707', 'odom', 'odom/x500_depth_0/OakD-Lite/base_link/StereoOV7251']),
         # Node(
         #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0.15', '0.03', ' 0.202',  '-1.5707', '0', '-1.5707', 'odom', 'odom/x500_depth_0/OakD-Lite/base_link/IMX214']),
+        #     arguments=['0.15', '0.03', '0.0',  '-1.5707', '0', '-1.5707', 'odom', 'odom/x500_depth_0/OakD-Lite/base_link/IMX214']),
 
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
@@ -56,4 +55,3 @@ def generate_launch_description():
             package='tf2_ros', executable='static_transform_publisher', output='screen',
             arguments=['15', '1', ' 1.5',  '0', '0', '0', 'map', 'goal7']), 
     ])
-

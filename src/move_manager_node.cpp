@@ -359,14 +359,10 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& par
     geometry_msgs::msg::Pose takeoff_pose;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
-        // Use last teleop pose if available and valid, otherwise use current odometry
-        if (last_teleop_pose_.position.x != 0.0 || last_teleop_pose_.position.y != 0.0 || last_teleop_pose_.position.z != 0.0) {
-            takeoff_pose = last_teleop_pose_;
-            RCLCPP_INFO(get_logger(), "Takeoff from last teleop position: [%.3f, %.3f, %.3f]", 
-                       takeoff_pose.position.x, takeoff_pose.position.y, takeoff_pose.position.z);
-        } else {
-            takeoff_pose = current_pose_;  // Keep current position and orientation
-        }
+        // Always use current drone position for X and Y (not teleop pose)
+        takeoff_pose = current_pose_;
+        RCLCPP_INFO(get_logger(), "Takeoff from current position: [%.3f, %.3f] to altitude %.3f", 
+                   takeoff_pose.position.x, takeoff_pose.position.y, takeoff_altitude_);
     }
     takeoff_pose.position.z = takeoff_altitude_;  // Only change altitude
 
@@ -562,7 +558,7 @@ void MoveManagerNode::static_tf_pub() {
 
     t.transform.translation.x = 0.15;
     t.transform.translation.y = 0.03;
-    t.transform.translation.z = 0.202;
+    t.transform.translation.z = 0.0;  // Camera at same height as base_link
 
     tf2::Quaternion q;
     q.setRPY(-1.5707, 0, -1.5707);
