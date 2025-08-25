@@ -9,7 +9,8 @@ windows:
   panes:
     - shell_command:            
         - cd ~/PX4_neabotics
-        - make px4_sitl gz_baby_k
+        # NOTE: For standard PX4 firmware, use 'make px4_sitl gz_x500_depth' instead of gz_baby_k
+        - make px4_sitl gz_baby_k  # For standard PX4: use 'make px4_sitl gz_x500_depth'
     - shell_command:
         - sleep 5
         - cd ~/ros2_ws && source install/setup.bash
@@ -26,8 +27,9 @@ windows:
   panes:
     - shell_command:
         - sleep 2           
+        # NOTE: For standard PX4 firmware, use '/model/x500_0/odometry' instead of baby_k_0
         - ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo /camera@sensor_msgs/msg/Image@gz.msgs.Image /depth_camera@sensor_msgs/msg/Image@gz.msgs.Image 
-          /model/baby_k_0/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry  /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock
+          /model/baby_k_0/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry  /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock  # For standard PX4: use '/model/x500_0/odometry'
     - shell_command:
         - sleep 5  
         - cd ~/ros2_ws && source install/setup.bash

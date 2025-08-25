@@ -555,9 +555,10 @@ void MoveManagerNode::static_tf_pub() {
     geometry_msgs::msg::TransformStamped t;
     
     // Transform: base_link -> baby_k_0/OakD-Lite/base_link/IMX214
+    // NOTE: For standard PX4 firmware, use x500_0/OakD-Lite/base_link/IMX214 instead of baby_k_0
     t.header.stamp = this->get_clock()->now();
     t.header.frame_id = "base_link";
-    t.child_frame_id = "baby_k_0/OakD-Lite/base_link/IMX214";
+    t.child_frame_id = "baby_k_0/OakD-Lite/base_link/IMX214"; // For standard PX4: use "x500_0/OakD-Lite/base_link/IMX214"
 
     t.transform.translation.x = 0.15;
     t.transform.translation.y = 0.03;

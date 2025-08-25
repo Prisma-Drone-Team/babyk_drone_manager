@@ -18,9 +18,10 @@ def generate_launch_description():
         'approx_sync': True,
         'qos_image': 2,
         'qos': 2,
-        'odom_topic':'/model/baby_k_0/odometry', 
+        # NOTE: For standard PX4 firmware, use '/model/x500_0/odometry' and 'x500_0/OakD-Lite/base_link/IMX214'
+        'odom_topic':'/model/baby_k_0/odometry',  # For standard PX4: use '/model/x500_0/odometry'
         'rgbd_cameras': 1,
-        'rgbd_camera_frame_id': 'baby_k_0/OakD-Lite/base_link/IMX214', 
+        'rgbd_camera_frame_id': 'baby_k_0/OakD-Lite/base_link/IMX214',  # For standard PX4: use 'x500_0/OakD-Lite/base_link/IMX214'
         'wait_for_transform': 10.5,
         'Mem/IncrementalMemory': 'true',  # Set to false for localization mode
         'Mem/InitWMWithAllNodes': 'true',  

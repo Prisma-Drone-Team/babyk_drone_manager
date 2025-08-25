@@ -1,3 +1,6 @@
+# RViz configuration for baby_k drone model
+# NOTE: For standard PX4 firmware, replace all instances of "baby_k_0" with "x500_0" in this file
+# This includes frame names like "baby_k_0/OakD-Lite/base_link/IMX214" -> "x500_0/OakD-Lite/base_link/IMX214"
 Panels:
   - Class: rviz_common/Displays
     Help Height: 78

@@ -1,7 +1,7 @@
 session_name: path_planner_flight
 socket_name: drone_pathplanner_real
 windows:
-  - window_name: main
+  - window_name: navigation_stack
     layout: tiled
     panes:
     - shell_command:
@@ -19,6 +19,17 @@ windows:
         - sleep 8
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch drone_odometry2 slam_leonardo.launch.py
+  - window_name: utils
+    layout: tiled
+    panes:
+    - shell_command:
+        - sleep 10
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 run joy joy_node
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch teleop_node enhanced_teleop.launch.py
     - shell_command:
         - sleep 15
         - cd ~/ros2_ws && source install/setup.bash
