@@ -342,6 +342,7 @@ The `babyk_drone_manager` coordinates:
 - `drone_odometry2` - TF publishing and PX4 odometry integration
 
 **Optional Packages**:
+- `joy` - Enable usb joystick connection 
 - `teleop_node` - Enhanced teleop control for manual flight
 
 ## Build and Installation
