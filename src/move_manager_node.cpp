@@ -27,11 +27,13 @@ MoveManagerNode::MoveManagerNode()
     odometry_topic_ = this->get_parameter("odometry_topic").as_string();
     joy_topic_ = this->get_parameter("joy_topic").as_string();
     takeoff_altitude_ = this->get_parameter("takeoff_altitude").as_double();
+    landing_altitude_ = this->get_parameter("landing_altitude").as_double();
     simulation_mode_ = this->get_parameter("simulation").as_bool();
 
     RCLCPP_INFO(get_logger(), "Move Manager Node initialized");
     RCLCPP_INFO(get_logger(), "  Command topic: %s", command_topic_.c_str());
     RCLCPP_INFO(get_logger(), "  Takeoff altitude: %.2f m", takeoff_altitude_);
+    RCLCPP_INFO(get_logger(), "  Landing altitude: %.2f m", landing_altitude_);
     RCLCPP_INFO(get_logger(), "  Simulation mode: %s", simulation_mode_ ? "enabled" : "disabled");
 
     // Initialize TF2
@@ -111,6 +113,7 @@ void MoveManagerNode::declare_parameters() {
 
     // Flight parameters
     this->declare_parameter("takeoff_altitude", 1.5);
+    this->declare_parameter("landing_altitude", -0.5);
     
     // Simulation parameter
     this->declare_parameter("simulation", false);
@@ -134,7 +137,7 @@ void MoveManagerNode::traj_interp_status_callback(const std_msgs::msg::String::S
     update_overall_status();
 }
 
-void MoveManagerNode::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
+void MoveManagerNode::joy_callback(const sensor_msgs::msg::Joy::SharedPtr /*msg*/) {
     // Semplice detection del joystick - se arrivano messaggi, è disponibile
     if (!joy_available_) {
         joy_available_ = true;
@@ -348,7 +351,7 @@ void MoveManagerNode::handle_go_command(const std::vector<std::string>& parts) {
     }
 }
 
-void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& parts) {
+void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*parts*/) {
     if (!odometry_received_) {
         RCLCPP_ERROR(get_logger(), "Cannot takeoff: no odometry received");
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -387,7 +390,7 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& par
     RCLCPP_INFO(get_logger(), "Sent takeoff command to traj_interp: altitude %.3f (single waypoint)", takeoff_altitude_);
 }
 
-void MoveManagerNode::handle_land_command(const std::vector<std::string>& parts) {
+void MoveManagerNode::handle_land_command(const std::vector<std::string>& /*parts*/) {
     if (!odometry_received_) {
         RCLCPP_ERROR(get_logger(), "Cannot land: no odometry received");
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -407,7 +410,7 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& parts)
             land_pose = current_pose_;  // Keep current orientation
         }
     }
-    land_pose.position.z = 0.0; // Only change altitude to land at ground level
+    land_pose.position.z = landing_altitude_; // Use configurable landing altitude
 
     // Create SINGLE waypoint path for landing to avoid yaw calculation
     nav_msgs::msg::Path land_path;
@@ -427,7 +430,7 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& parts)
         overall_status_ = "LANDING";
     }
     
-    RCLCPP_INFO(get_logger(), "Sent land command to traj_interp (single waypoint)");
+    RCLCPP_INFO(get_logger(), "Sent land command to traj_interp: altitude %.3f (single waypoint)", landing_altitude_);
 }
 
 void MoveManagerNode::handle_stop_command() {

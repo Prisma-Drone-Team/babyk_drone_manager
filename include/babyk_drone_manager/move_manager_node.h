@@ -75,16 +75,18 @@ private:
     std::string odometry_topic_;
     std::string joy_topic_;
     double takeoff_altitude_;
+    double landing_altitude_;
     bool simulation_mode_;
 
     // State variables
     std::string current_command_;
     std::string received_command_;
+    geometry_msgs::msg::Pose current_pose_;
+    bool odometry_received_;
+    std::atomic<bool> running_;
     std::string path_planner_status_;
     std::string traj_interp_status_;
     std::string overall_status_;
-    geometry_msgs::msg::Pose current_pose_;
-    bool odometry_received_;
     bool teleop_active_;
     bool joy_available_;
     geometry_msgs::msg::Pose last_teleop_pose_;
@@ -92,7 +94,6 @@ private:
     // Threading
     std::thread command_processor_thread_;
     std::mutex state_mutex_;
-    std::atomic<bool> running_;
 
     // Callback functions
     void command_callback(const std_msgs::msg::String::SharedPtr msg);
