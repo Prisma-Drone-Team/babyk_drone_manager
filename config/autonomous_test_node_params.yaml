@@ -7,3 +7,4 @@ autonomous_test_node:
     
     # Command probabilities
     land_probability: 0.10      # 10% chance of sending land command (vs flyto goal)
+    max_consecutive_failures: 3 # Emergency land after this many consecutive failures

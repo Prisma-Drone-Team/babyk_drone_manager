@@ -88,8 +88,9 @@ ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'go(x,y,z)'}" -
 # Movement with path planning
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(frame_name)'}" --once
 
-# Landing (maintains current yaw, single waypoint)
+# Landing (configurable depth, maintains current yaw, single waypoint)
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once
+# Uses landing_altitude parameter (default: -0.5m = underground landing)
 
 # Emergency stop
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once
@@ -204,6 +205,38 @@ tmuxp load flight.yml
 
 **Real Arena Configuration**: Optimized for small arena (5x6 meters) with goals positioned safely within bounds.
 
+## 🛡️ Safety Parameters
+
+### Flight Altitude Control
+The system now provides precise control over takeoff and landing altitudes:
+
+**Takeoff Configuration**:
+- `takeoff_altitude`: Height for takeoff operations (default: 1.5m)
+- Single waypoint path to avoid horizontal drift
+
+**Landing Configuration**:
+- `landing_altitude`: Target depth for landing (default: -0.5m)
+- Negative values = underground landing for complete safety
+- Maintains current position (X,Y) during landing
+
+**Safety Benefits**:
+- ✅ **Underground landing**: Ensures complete drone shutdown
+- ✅ **Configurable depths**: Adapt to different ground conditions
+- ✅ **Position stability**: No horizontal movement during critical phases
+- ✅ **Failsafe behavior**: Predictable landing regardless of conditions
+
+**Example Configurations**:
+```yaml
+# Standard underground landing
+landing_altitude: -0.5
+
+# Surface landing  
+landing_altitude: 0.0
+
+# Deep underground (soft surfaces)
+landing_altitude: -1.0
+```
+
 ## Configuration Parameters
 
 ### move_manager_params.yaml (Real Flight)
@@ -212,7 +245,8 @@ move_manager_node:
   ros__parameters:
     command_topic: "/move_manager/command"
     status_topic: "/move_manager/status"
-    takeoff_altitude: 1.5
+    takeoff_altitude: 1.5     # Takeoff height (meters)
+    landing_altitude: -0.5    # Landing depth (meters, negative = underground)
     simulation: false
 ```
 
@@ -222,7 +256,8 @@ move_manager_node:
   ros__parameters:
     command_topic: "/move_manager/command"
     status_topic: "/move_manager/status"
-    takeoff_altitude: 1.5
+    takeoff_altitude: 1.5     # Takeoff height (meters)
+    landing_altitude: -0.5    # Landing depth (meters, negative = underground) 
     simulation: true  # Enables TF publishing
 ```
 

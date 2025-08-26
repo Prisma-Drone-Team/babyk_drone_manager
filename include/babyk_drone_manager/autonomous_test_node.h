@@ -36,6 +36,8 @@ private:
     bool last_command_was_land_;
     bool system_initialized_;
     std::vector<std::string> available_goals_;
+    int consecutive_failures_;         // Counter for consecutive failures
+    std::string last_command_sent_;    // Track what command was sent
     
     // Random number generation
     std::random_device rd_;
@@ -47,6 +49,7 @@ private:
     int command_interval_max_;
     int max_wait_time_;
     double land_probability_;
+    int max_consecutive_failures_;    // Max failures before emergency land
 };
 
 #endif // AUTONOMOUS_TEST_NODE_H
