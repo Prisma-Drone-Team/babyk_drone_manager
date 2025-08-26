@@ -4,7 +4,33 @@
 
 ## Overview
 
-The `babyk_drone_manager` is the main package that manages the entire drone system, coordinating all components and providing a unified interface for control. It centralizes launch files, configurations, and TMUX files for simplified system management.
+The `babyk_drone_manager` is the main package that manages the entire drone system, coordinating all components and providing a unified inte### Configuration
+
+Edit `config/autonomous_test_node_params.yaml` to customize:
+
+```yaml
+autonomous_test_node:
+  ros__parameters:
+    command_interval_min: 120      # Minimum time between commands (seconds)
+    command_interval_max: 180      # Maximum time between commands (seconds)
+    max_wait_time: 60             # Max time to wait if system stuck
+    land_probability: 0.10        # Probability of sending land command (0.0-1.0)
+```
+
+**Real Flight Configuration** (`config/autonomous_test_node_flight.yaml`):
+- Longer intervals (3-4 minutes) for safety
+- Lower land probability (5%) for extended flight sessions
+- Increased wait times for real hardware limitations
+
+### Arena Configurations
+
+**Simulation Arena**: Large space (20x15 meters)
+- Goals distributed across wide area for comprehensive testing
+- Higher altitude operations (up to 5m)
+
+**Real Arena**: Small controlled space (5x6 meters)
+- Goals positioned within safety bounds: x=[-1.0, 4.0], y=[-3.0, 3.0], z=1.5m
+- Conservative flight envelope for indoor testingntrol. It centralizes launch files, configurations, and TMUX files for simplified system management.
 
 ## Architecture
 
@@ -40,6 +66,35 @@ babyk_drone_manager/
 - `/move_manager/status` (output) - System status
 - `/move_base_simple/goal` (output) - Goals for path planner
 - `/trajectory_path` (output) - Trajectories for interpolator
+
+### Autonomous Test Node
+**Node**: `autonomous_test_node`  
+**Description**: Automated testing system that continuously sends random commands to test the entire drone system.
+
+**Features**:
+- Monitors `/trajectory_interpolator/status` for system state
+- Automatically sends random commands when system is idle
+- Intelligent command sequencing (takeoff → flyto/land → repeat)
+- Configurable timing and command probabilities
+
+**Main Topics**:
+- `/move_manager/command` (output) - Random test commands
+- `/trajectory_interpolator/status` (input) - System status monitoring
+
+**Command Sequence**:
+1. **Initial**: Sends `takeoff` when system starts
+2. **Random Loop**: 90% `flyto(goal1-7)`, 10% `land`  
+3. **After Land**: Always sends `takeoff` next
+
+**Configuration** (`config/autonomous_test_node_params.yaml`):
+```yaml
+autonomous_test_node:
+  ros__parameters:
+    command_interval_min: 120      # Min seconds between commands
+    command_interval_max: 180      # Max seconds between commands  
+    max_wait_time: 60             # Max wait if system stuck
+    land_probability: 0.10        # 10% chance of land command
+```
 
 **Supported Commands**:
 ```bash
@@ -106,9 +161,28 @@ Launches all components: move_manager + path_planner.
 ros2 launch babyk_drone_manager move_manager.launch.py config_file:=config/move_manager_params.yaml simulation:=false
 ```
 
+### Autonomous Test Node
+```bash
+# For simulation
+ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=true
+
+# For real flight (conservative timing)
+ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=false config_file:=config/autonomous_test_node_flight.yaml
+```
+Launches the autonomous testing system that continuously sends random commands.
+
 ### RTABMap Simulation
 ```bash
 ros2 launch babyk_drone_manager rtabmap_sim.launch.py use_sim_time:=true
+```
+
+### TF Static Publishers
+```bash
+# For simulation (large arena with wide-spaced goals)
+ros2 launch babyk_drone_manager tf_static_sim.launch.py use_sim_time:=true
+
+# For real flight (small arena with close-spaced goals)  
+ros2 launch babyk_drone_manager tf_static_flight.launch.py use_sim_time:=false
 ```
 
 ## TMUX Configurations
@@ -128,7 +202,10 @@ tmuxp load simulation.yml
 - Move Manager
 - Path Planner
 - Trajectory Interpolator
+- **Autonomous Test Node** (sends random commands)
 - PlotJuggler
+
+**Autonomous Testing**: The system automatically starts sending random commands for continuous testing of all drone functions.
 
 ### Real Flight
 ```bash
@@ -140,7 +217,11 @@ tmuxp load flight.yml
 - Path Planner  
 - Trajectory Interpolator
 - SLAM (Leonardo)
+- **TF Static Publishers** (goal1-7 for real arena)
+- **Autonomous Test Node** (conservative timing for real flight)
 - RViz
+
+**Real Arena Configuration**: Optimized for small arena (5x6 meters) with goals positioned safely within bounds.
 
 ## Configuration Parameters
 
@@ -163,6 +244,67 @@ move_manager_node:
     takeoff_altitude: 1.5
     simulation: true  # Enables TF publishing
 ```
+
+## Autonomous Testing
+
+### Overview
+The `autonomous_test_node` provides continuous automated testing of the entire drone system by sending random commands. This ensures comprehensive testing of all flight modes and system components.
+
+### Usage
+
+**Start Complete Autonomous Testing**:
+```bash
+tmuxp load simulation.yml
+```
+The autonomous test node is automatically included and starts testing immediately.
+
+**Manual Launch**:
+```bash
+ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=true
+```
+
+**Monitor Testing**:
+```bash
+# Watch commands being sent
+ros2 topic echo /move_manager/command
+
+# Monitor system status
+ros2 topic echo /trajectory_interpolator/status
+
+# Check autonomous test node logs
+ros2 node info /autonomous_test_node
+```
+
+### Configuration
+
+Edit `config/autonomous_test_node_params.yaml` to customize:
+
+```yaml
+autonomous_test_node:
+  ros__parameters:
+    command_interval_min: 120      # Minimum time between commands (seconds)
+    command_interval_max: 180      # Maximum time between commands (seconds)
+    max_wait_time: 60             # Max time to wait if system is stuck
+    land_probability: 0.10        # Probability of sending land command (0.0-1.0)
+```
+
+### Test Sequence
+
+1. **System Initialization**: Waits for system to be idle
+2. **Initial Takeoff**: Sends `takeoff` command
+3. **Random Commands**: 
+   - 90% chance: `flyto(goal1)` through `flyto(goal7)`
+   - 10% chance: `land`
+4. **Smart Recovery**: After land, next command is always `takeoff`
+5. **Continuous Loop**: Repeats indefinitely for stress testing
+
+### Benefits
+
+- **Comprehensive Testing**: Tests all flight modes automatically
+- **Stress Testing**: Continuous operation reveals system issues
+- **Hands-Free**: No manual intervention required
+- **Configurable**: Adjustable timing and command probabilities
+- **Intelligent**: Responds to system status and recovers from errors
 
 ## System Integration
 

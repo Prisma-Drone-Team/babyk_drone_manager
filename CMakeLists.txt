@@ -39,7 +39,20 @@ ament_target_dependencies(move_manager_node
   tf2_geometry_msgs
 )
 
+add_executable(autonomous_test_node src/autonomous_test_node.cpp)
+
+ament_target_dependencies(autonomous_test_node 
+  rclcpp 
+  std_msgs 
+  geometry_msgs
+)
+
 target_include_directories(move_manager_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(autonomous_test_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -49,7 +62,7 @@ target_link_libraries(move_manager_node
 )
 
 # Install targets
-install(TARGETS move_manager_node
+install(TARGETS move_manager_node autonomous_test_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

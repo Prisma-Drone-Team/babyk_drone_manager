@@ -31,14 +31,21 @@ windows:
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch teleop_node enhanced_teleop.launch.py
     - shell_command:
-        - sleep 15
+        - sleep 10
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run rviz2 rviz2 -d src/pkg/babyk_drone_manager/rviz/leo.rviz
+        - ros2 launch babyk_drone_manager tf_static_flight.launch.py use_sim_time:=false
     - shell_command:
-        - sleep 20
+        - sleep 12
         - cd ~/ros2_ws && source install/setup.bash
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'takeoff'}" --once        # to takeoff
+        - ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=false config_file:=config/autonomous_test_node_flight.yaml
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'takeoff'}" --once          # to takeoff
         #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'go(10.0,5.0,3.0)'}" --once # direct movement without path planning
         #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(goal1)'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once           # to land
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once           # to stop trajectory
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once             # to land
+        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once             # to stop trajectory
+    # - shell_command:
+    #     - sleep 15
+    #     - cd ~/ros2_ws && source install/setup.bash
+    #     - ros2 run rviz2 rviz2 -d src/pkg/babyk_drone_manager/rviz/leo.rviz
+    
+        
