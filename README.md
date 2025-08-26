@@ -11,22 +11,28 @@ The `babyk_drone_manager` is the main package that manages the entire drone syst
 ```
 babyk_drone_manager/
 ├── src/
-│   └── move_manager_node.cpp      # Movement management node
+│   ├── move_manager_node.cpp          # Movement management node
+│   └── autonomous_test_node.cpp       # Autonomous testing node
 ├── include/babyk_drone_manager/
-│   └── move_manager_node.h        # Move manager header
-├── launch/                        # Centralized launch files
-│   ├── move_manager.launch.py     # Movement management
-│   ├── full_system.launch.py      # Complete system
-│   ├── rtabmap_sim.launch.py      # SLAM simulation
-│   ├── tf_static_sim.launch.py    # Static TF simulation
+│   ├── move_manager_node.h            # Move manager header
+│   └── autonomous_test_node.h         # Autonomous test node header
+├── launch/                            # Centralized launch files
+│   ├── move_manager.launch.py         # Movement management
+│   ├── autonomous_test_node.launch.py # Autonomous testing
+│   ├── full_system.launch.py          # Complete system
+│   ├── rtabmap_sim.launch.py          # SLAM simulation
+│   ├── tf_static_sim.launch.py        # Static TF simulation
+│   ├── tf_static_flight.launch.py     # Static TF real flight
 │   └── px4_tf_pub_simulation.launch.py # PX4 TF simulation
-├── config/                        # Centralized configurations
-│   ├── move_manager_params.yaml   # Real flight parameters
-│   └── move_manager_simulation.yaml # Simulation parameters
+├── config/                            # Centralized configurations
+│   ├── move_manager_params.yaml       # Real flight parameters
+│   ├── move_manager_simulation.yaml   # Simulation parameters
+│   ├── autonomous_test_node_params.yaml # Test node simulation config
+│   └── autonomous_test_node_flight.yaml # Test node real flight config
 ├── rviz/
-│   └── leo.rviz                   # RViz configuration
-├── simulation.yml                 # TMUX simulation
-└── flight.yml                    # TMUX real flight
+│   └── leo.rviz                       # RViz configuration
+├── simulation.yml                     # TMUX simulation (with autonomous testing)
+└── flight.yml                        # TMUX real flight (with autonomous testing)
 ```
 
 ## Main Components
@@ -330,23 +336,43 @@ The `babyk_drone_manager` coordinates:
 - `rtabmap_ros`, `rtabmap_util`, `sensor_msgs`
 - `image_transport`, `visualization_msgs`
 
-**Custom Packages**:
-- `path_planner` - Path planning
-- `traj_interp` - Trajectory interpolation  
-- `drone_odometry2` - TF and PX4 odometry
+**Required Custom Packages** (for complete flight stack):
+- `path_planner` - Path planning with OMPL+FCL
+- `traj_interp` - Trajectory interpolation and resampling
+- `drone_odometry2` - TF publishing and PX4 odometry integration
+
+**Optional Packages**:
+- `teleop_node` - Enhanced teleop control for manual flight
 
 ## Build and Installation
 
+**Prerequisites**: Ensure all required custom packages are available in your workspace:
 ```bash
-# Build
-cd ~/ros2_ws
-colcon build --packages-select babyk_drone_manager
+# Check that all packages are present
+ls ~/ros2_ws/src/pkg/
+# Should contain: babyk_drone_manager, path_planner, traj_interp, drone_odometry2
+```
 
-# Source
+**Build complete flight stack**:
+```bash
+# Build all required packages
+cd ~/ros2_ws
+colcon build --packages-select babyk_drone_manager path_planner traj_interp drone_odometry2
+
+# Source workspace
 source install/setup.bash
 
 # Verify installation
 ros2 launch babyk_drone_manager move_manager.launch.py --help
+ros2 launch babyk_drone_manager autonomous_test_node.launch.py --help
+```
+
+**Individual package build**:
+```bash
+# Build only babyk_drone_manager (requires other packages to be built first)
+cd ~/ros2_ws
+colcon build --packages-select babyk_drone_manager
+source install/setup.bash
 ```
 
 ## Development Notes
