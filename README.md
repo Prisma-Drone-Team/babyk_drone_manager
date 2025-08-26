@@ -4,33 +4,7 @@
 
 ## Overview
 
-The `babyk_drone_manager` is the main package that manages the entire drone system, coordinating all components and providing a unified inte### Configuration
-
-Edit `config/autonomous_test_node_params.yaml` to customize:
-
-```yaml
-autonomous_test_node:
-  ros__parameters:
-    command_interval_min: 120      # Minimum time between commands (seconds)
-    command_interval_max: 180      # Maximum time between commands (seconds)
-    max_wait_time: 60             # Max time to wait if system stuck
-    land_probability: 0.10        # Probability of sending land command (0.0-1.0)
-```
-
-**Real Flight Configuration** (`config/autonomous_test_node_flight.yaml`):
-- Longer intervals (3-4 minutes) for safety
-- Lower land probability (5%) for extended flight sessions
-- Increased wait times for real hardware limitations
-
-### Arena Configurations
-
-**Simulation Arena**: Large space (20x15 meters)
-- Goals distributed across wide area for comprehensive testing
-- Higher altitude operations (up to 5m)
-
-**Real Arena**: Small controlled space (5x6 meters)
-- Goals positioned within safety bounds: x=[-1.0, 4.0], y=[-3.0, 3.0], z=1.5m
-- Conservative flight envelope for indoor testingntrol. It centralizes launch files, configurations, and TMUX files for simplified system management.
+The `babyk_drone_manager` is the main package that manages the entire drone system, coordinating all components and providing a unified interface for control. It centralizes launch files, configurations, and TMUX files for simplified system management.
 
 ## Architecture
 
@@ -96,7 +70,8 @@ autonomous_test_node:
     land_probability: 0.10        # 10% chance of land command
 ```
 
-**Supported Commands**:
+## Supported Commands
+
 ```bash
 # Takeoff (maintains current yaw, single waypoint)
 ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'takeoff'}" --once
