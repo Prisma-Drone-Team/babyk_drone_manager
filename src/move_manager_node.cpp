@@ -11,7 +11,9 @@ MoveManagerNode::MoveManagerNode()
       traj_interp_status_("IDLE"),
       overall_status_("IDLE"),
       teleop_active_(false),
-      joy_available_(false) {
+      joy_available_(false),
+      joy_ever_disconnected_(false),
+      last_joy_time_(this->get_clock()->now()) {
     
     // Declare parameters
     declare_parameters();
@@ -86,6 +88,11 @@ MoveManagerNode::MoveManagerNode()
     joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
         joy_topic_, 10, std::bind(&MoveManagerNode::joy_callback, this, std::placeholders::_1));
 
+    // Timer per controllare il timeout del joystick (controlla ogni 2 secondi)
+    joy_timeout_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(2000), 
+        std::bind(&MoveManagerNode::joy_timeout_callback, this));
+
     // Start command processor thread
     command_processor_thread_ = std::thread(&MoveManagerNode::command_processor, this);
 
@@ -138,10 +145,55 @@ void MoveManagerNode::traj_interp_status_callback(const std_msgs::msg::String::S
 }
 
 void MoveManagerNode::joy_callback(const sensor_msgs::msg::Joy::SharedPtr /*msg*/) {
-    // Semplice detection del joystick - se arrivano messaggi, è disponibile
+    // Aggiorna il timestamp dell'ultimo messaggio joy ricevuto
+    last_joy_time_ = this->get_clock()->now();
+    
+    // Detection del joystick - se arrivano messaggi, è disponibile
     if (!joy_available_) {
         joy_available_ = true;
-        RCLCPP_INFO(get_logger(), "Joystick detected - teleop functionality enabled");
+        
+        if (!joy_ever_disconnected_) {
+            // Prima volta che rileva il joystick - tutto normale
+            RCLCPP_INFO(get_logger(), "🎮 Joystick detected - teleop functionality enabled");
+        } else {
+            // Joystick ricollegato dopo disconnessione - NON riabilita teleop per sicurezza
+            RCLCPP_WARN(get_logger(), "🎮 Joystick reconnected, but teleop remains DISABLED for safety");
+            RCLCPP_WARN(get_logger(), "⚠️ Restart the move_manager node to re-enable teleop functionality");
+        }
+    }
+}
+
+void MoveManagerNode::joy_timeout_callback() {
+    if (joy_available_) {
+        auto now = this->get_clock()->now();
+        auto time_since_last_joy = now - last_joy_time_;
+        
+        // Se non riceviamo messaggi joy per più di 3 secondi, considera il joy disconnesso
+        if (time_since_last_joy.seconds() > 3.0) {
+            joy_available_ = false;
+            joy_ever_disconnected_ = true;  // Marca che il joy si è disconnesso almeno una volta
+            RCLCPP_ERROR(get_logger(), "🚨 JOYSTICK DISCONNECTED - teleop functionality PERMANENTLY DISABLED");
+            RCLCPP_ERROR(get_logger(), "⚠️ For safety, teleop will remain disabled even if joystick reconnects");
+            RCLCPP_ERROR(get_logger(), "🔄 Restart move_manager node to re-enable teleop after reconnecting joystick");
+            
+            // Se eravamo in modalità teleop, usciamo automaticamente
+            if (teleop_active_) {
+                RCLCPP_ERROR(get_logger(), "🛑 EMERGENCY: Exiting teleop mode due to joystick disconnection");
+                teleop_active_ = false;
+                
+                // Pubblica lo stato teleop_active = false
+                auto teleop_msg = std_msgs::msg::Bool();
+                teleop_msg.data = false;
+                teleop_active_pub_->publish(teleop_msg);
+                
+                // Ferma il drone per sicurezza
+                {
+                    std::lock_guard<std::mutex> lock(state_mutex_);
+                    overall_status_ = "EMERGENCY_STOPPED";
+                }
+                RCLCPP_ERROR(get_logger(), "🛑 Drone EMERGENCY STOPPED due to joystick disconnection");
+            }
+        }
     }
 }
 
@@ -592,10 +644,20 @@ void MoveManagerNode::static_tf_pub() {
 void MoveManagerNode::handle_teleop_command() {
     // Verifica se il joystick è disponibile
     if (!joy_available_) {
-        RCLCPP_ERROR(get_logger(), "Cannot activate teleop mode - joystick not detected!");
+        RCLCPP_ERROR(get_logger(), "❌ Cannot activate teleop mode - joystick not detected!");
         RCLCPP_ERROR(get_logger(), "Please ensure joystick is connected and joy_node is running");
         std::lock_guard<std::mutex> lock(state_mutex_);
         overall_status_ = "ERROR_NO_JOYSTICK";
+        return;
+    }
+    
+    // Verifica se il joystick si è mai disconnesso (safety lock)
+    if (joy_ever_disconnected_) {
+        RCLCPP_ERROR(get_logger(), "🚨 Cannot activate teleop mode - joystick was previously disconnected!");
+        RCLCPP_ERROR(get_logger(), "⚠️ For safety, teleop is permanently disabled after any disconnection");
+        RCLCPP_ERROR(get_logger(), "🔄 Please restart the move_manager node to re-enable teleop");
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "ERROR_TELEOP_SAFETY_LOCKED";
         return;
     }
     
@@ -630,8 +692,11 @@ void MoveManagerNode::handle_teleop_command() {
         path_planner_status_ = "IDLE";
         traj_interp_status_ = "TELEOP_MODE";  // Nuovo stato
         
-        // Save current position as starting teleop position
+        // Reset and save current position as starting teleop position
+        // Questo previene salti quando si rientra in teleop dopo disconnessione
         last_teleop_pose_ = current_pose_;
+        RCLCPP_INFO(get_logger(), "🎯 Reset teleop reference to current position: [%.3f, %.3f, %.3f]", 
+                    current_pose_.position.x, current_pose_.position.y, current_pose_.position.z);
     }
     
     RCLCPP_INFO(get_logger(), "Teleop mode activated - use joystick to control the drone");

@@ -89,6 +89,9 @@ private:
     std::string overall_status_;
     bool teleop_active_;
     bool joy_available_;
+    bool joy_ever_disconnected_;  // Se true, non riabilita più il teleop automaticamente
+    rclcpp::Time last_joy_time_;
+    rclcpp::TimerBase::SharedPtr joy_timeout_timer_;
     geometry_msgs::msg::Pose last_teleop_pose_;
     
     // Threading
@@ -102,6 +105,7 @@ private:
     void planned_path_callback(const nav_msgs::msg::Path::SharedPtr msg);
     void odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
+    void joy_timeout_callback();
 
     // Command processing
     void command_processor();
