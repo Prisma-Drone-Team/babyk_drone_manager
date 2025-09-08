@@ -19,7 +19,7 @@ move_manager_node:
     
     # Sensor input (simulation topics)
     # NOTE: For standard PX4 firmware, use "/model/x500_0/odometry" instead of baby_k_0
-    odometry_topic: "/model/baby_k_0/odometry"  # For standard PX4: use "/model/x500_0/odometry"
+    odometry_topic: "/model/x500_depth_0/odometry"  # For standard PX4: use "/model/x500_0/odometry"
     joy_topic: "/joy"
     
     # Flight parameters

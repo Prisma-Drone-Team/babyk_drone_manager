@@ -80,9 +80,9 @@ Visualization Manager:
           Value: true
         odomNED:
           Value: true
-        baby_k_0/OakD-Lite/base_link/IMX214:
+        x500_depth_0/OakD-Lite/base_link/IMX214:
           Value: true
-        baby_k_0/OakD-Lite/base_link/StereoOV7251:
+        x500_depth_0/OakD-Lite/base_link/StereoOV7251:
           Value: true
       Marker Scale: 1
       Name: TF
@@ -109,7 +109,7 @@ Visualization Manager:
             odomNED:
               base_link_FRD:
                 base_link:
-                  baby_k_0/OakD-Lite/base_link/IMX214:
+                  x500_depth_0/OakD-Lite/base_link/IMX214:
                     {}
       Update Interval: 0
       Value: true

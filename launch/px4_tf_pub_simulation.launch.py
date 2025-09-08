@@ -31,7 +31,7 @@ def generate_launch_description():
                 }
             ],
             remappings=[
-                ('/odometry/filtered', '/model/baby_k_0/odometry')  # Use Gazebo odometry directly in simulation
+                ('/odometry/filtered', '/model/x500_depth_0/odometry')  # Use Gazebo odometry directly in simulation
             ],
             arguments=['--log-level', 'info']
         )  
