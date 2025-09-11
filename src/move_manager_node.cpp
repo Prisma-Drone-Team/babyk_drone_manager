@@ -66,6 +66,8 @@ MoveManagerNode::MoveManagerNode()
     
     teleop_active_pub_ = this->create_publisher<std_msgs::msg::Bool>("/move_manager/teleop_active", 10);
 
+    path_mode_pub_ = this->create_publisher<std_msgs::msg::String>("/move_manager/path_mode", 10);
+
     // Initialize subscribers
     rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
     auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
@@ -317,8 +319,21 @@ void MoveManagerNode::process_command(const std::vector<std::string>& command_pa
         // Piccola pausa per permettere al traj_interp di processare il cambio modalità
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+
+    std::string path_mode = "flyto"; // default
     
-    if (command == "flyto") {
+   if (command == "flyto") {
+        if (command_parts.size() > 1) {
+            if (command_parts[1].rfind("cover", 0) == 0) { // inizia con "cover"
+                path_mode = "cover";
+            } else if (command_parts[1].rfind("circle", 0) == 0) { // inizia con "circle"
+                path_mode = "circle";
+            }
+        }
+        std_msgs::msg::String mode_msg;
+        mode_msg.data = path_mode;
+        path_mode_pub_->publish(mode_msg);
+
         handle_flyto_command(command_parts);
     } else if (command == "go") {
         handle_go_command(command_parts);
@@ -344,44 +359,68 @@ void MoveManagerNode::handle_flyto_command(const std::vector<std::string>& parts
         overall_status_ = "ERROR_INVALID_FLYTO";
         return;
     }
-    
+
+    std::string frame = parts[1];
+    // Estrai il contenuto più interno tra parentesi, se presente
+    size_t last_open = frame.rfind('(');
+    size_t first_close = frame.find(')', last_open);
+    if (last_open != std::string::npos && first_close != std::string::npos && first_close > last_open) {
+        frame = frame.substr(last_open + 1, first_close - last_open - 1);
+    }
+
     geometry_msgs::msg::Pose target_pose;
-    if (lookup_transform(parts[1], target_pose)) {
-        // Send goal to path planner
+    if (lookup_transform(frame, target_pose)) {
         geometry_msgs::msg::PoseStamped goal_msg;
         goal_msg.header.stamp = this->get_clock()->now();
         goal_msg.header.frame_id = "map";
         goal_msg.pose = target_pose;
-        
+
         path_planner_goal_pub_->publish(goal_msg);
-        
+
         {
             std::lock_guard<std::mutex> lock(state_mutex_);
             overall_status_ = "PLANNING_PATH";
         }
-        
-        RCLCPP_INFO(get_logger(), "Sent flyto goal to path planner: [%.3f, %.3f, %.3f]", 
-                    target_pose.position.x, target_pose.position.y, target_pose.position.z);
+
+        RCLCPP_INFO(get_logger(), "Sent flyto goal to path planner: [%.3f, %.3f, %.3f] (frame: %s)", 
+                    target_pose.position.x, target_pose.position.y, target_pose.position.z, frame.c_str());
     } else {
-        RCLCPP_ERROR(get_logger(), "Could not find transform for frame: %s", parts[1].c_str());
+        RCLCPP_ERROR(get_logger(), "Could not find transform for frame: %s", frame.c_str());
         std::lock_guard<std::mutex> lock(state_mutex_);
         overall_status_ = "ERROR_FRAME_NOT_FOUND";
     }
 }
 
 void MoveManagerNode::handle_go_command(const std::vector<std::string>& parts) {
-    if (parts.size() < 4) {
+    if (parts.size() < 2) {
         RCLCPP_ERROR(get_logger(), "go command requires 3 coordinates: go(x,y,z)");
         std::lock_guard<std::mutex> lock(state_mutex_);
         overall_status_ = "ERROR_INVALID_GO";
         return;
     }
-    
+
+    // Split parts[1] by ','
+    std::vector<std::string> coords;
+    std::string s = parts[1];
+    size_t start = 0, end = 0;
+    while ((end = s.find(',', start)) != std::string::npos) {
+        coords.push_back(s.substr(start, end - start));
+        start = end + 1;
+    }
+    coords.push_back(s.substr(start));
+
+    if (coords.size() != 3) {
+        RCLCPP_ERROR(get_logger(), "go command requires 3 coordinates: go(x,y,z)");
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "ERROR_INVALID_GO";
+        return;
+    }
+
     try {
         geometry_msgs::msg::Pose target_pose;
-        target_pose.position.x = std::stod(parts[1]);
-        target_pose.position.y = std::stod(parts[2]);
-        target_pose.position.z = std::stod(parts[3]);
+        target_pose.position.x = std::stod(coords[0]);
+        target_pose.position.y = std::stod(coords[1]);
+        target_pose.position.z = std::stod(coords[2]);
         target_pose.orientation.w = 1.0; // Default orientation
         
         // Create direct path and send to traj_interp
@@ -502,33 +541,50 @@ void MoveManagerNode::handle_stop_command() {
 }
 
 std::vector<std::string> MoveManagerNode::parse_command(const std::string& command) {
-    // Parse command format like "flyto(frame_name)" or "go(x,y,z)"
     std::vector<std::string> result;
-    
-    size_t paren_pos = command.find('(');
-    if (paren_pos != std::string::npos) {
-        // Extract command name
-        result.push_back(command.substr(0, paren_pos));
-        
-        // Extract arguments
-        size_t end_paren = command.find(')', paren_pos);
-        if (end_paren != std::string::npos) {
-            std::string args = command.substr(paren_pos + 1, end_paren - paren_pos - 1);
-            std::stringstream ss(args);
-            std::string item;
-            
-            while (std::getline(ss, item, ',')) {
-                // Remove whitespace
-                item.erase(0, item.find_first_not_of(" \t"));
-                item.erase(item.find_last_not_of(" \t") + 1);
-                result.push_back(item);
+
+    auto parse_recursive = [&](const std::string& cmd, auto&& parse_recursive_ref) -> void {
+        size_t paren_pos = cmd.find('(');
+        if (paren_pos != std::string::npos) {
+            // Nome comando
+            std::string name = cmd.substr(0, paren_pos);
+            result.push_back(name);
+
+            // Trova parentesi chiusa corrispondente
+            int depth = 0;
+            size_t end_paren = std::string::npos;
+            for (size_t i = paren_pos; i < cmd.size(); ++i) {
+                if (cmd[i] == '(') depth++;
+                else if (cmd[i] == ')') {
+                    depth--;
+                    if (depth == 0) {
+                        end_paren = i;
+                        break;
+                    }
+                }
+            }
+            if (end_paren != std::string::npos) {
+                std::string args = cmd.substr(paren_pos + 1, end_paren - paren_pos - 1);
+
+                // 🔹 Aggiungi l’argomento intero se è tipo "circle(goal)"
+                result.push_back(args);
+
+                // Se dentro ci sono altre parentesi, ricorsione
+                parse_recursive_ref(args, parse_recursive_ref);
+            }
+        } else {
+            // Nessuna parentesi → comando semplice o argomento base
+            std::string trimmed = cmd;
+            trimmed.erase(0, trimmed.find_first_not_of(" \t"));
+            trimmed.erase(trimmed.find_last_not_of(" \t") + 1);
+            if (!trimmed.empty()) {
+                result.push_back(trimmed);
             }
         }
-    } else {
-        // Simple command without arguments
-        result.push_back(command);
-    }
-    
+    };
+
+    parse_recursive(command, parse_recursive);
+
     return result;
 }
 

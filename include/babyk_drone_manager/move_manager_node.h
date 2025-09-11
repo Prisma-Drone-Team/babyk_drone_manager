@@ -44,6 +44,7 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr traj_interp_path_pub_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr teleop_active_pub_;  // NEW: teleop active flag
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr path_mode_pub_;    // NEW: current path mode
 
     // ROS 2 subscribers
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_sub_;
@@ -118,7 +119,8 @@ private:
     void handle_land_command(const std::vector<std::string>& parts);
     void handle_stop_command();
     void handle_teleop_command();
-
+    void handle_circle_command(const std::vector<std::string>& parts);
+    void handle_cover_command(const std::vector<std::string>& parts);
     // Utility functions
     std::vector<std::string> parse_command(const std::string& command);
     bool lookup_transform(const std::string& frame_name, geometry_msgs::msg::Pose& pose);
