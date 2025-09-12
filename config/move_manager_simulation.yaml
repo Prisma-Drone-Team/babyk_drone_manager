@@ -24,6 +24,7 @@ move_manager_node:
     
     # Flight parameters
     takeoff_altitude: 1.5  # meters
+    landing_altitude: -0.5  # meters
     
     # Simulation parameters
     simulation: true  # Enable TF publishing for simulation
