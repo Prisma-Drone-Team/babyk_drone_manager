@@ -1,7 +1,7 @@
 move_manager_node:
   ros__parameters:    
     # Command topics
-    command_topic: "/move_manager/command"
+    command_topic: "/seed_pdt_drone/command"
     status_topic: "/move_manager/status"
     
     # Path planner interface

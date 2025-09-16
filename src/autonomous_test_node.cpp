@@ -30,7 +30,7 @@ AutonomousTestNode::AutonomousTestNode()
 
     // Create publisher and subscriber
     command_publisher_ = this->create_publisher<std_msgs::msg::String>(
-        "/move_manager/command", 10);
+        "/seed_pdt_drone/command", 10);
     
     status_subscriber_ = this->create_subscription<std_msgs::msg::String>(
         "/trajectory_interpolator/status", 10,

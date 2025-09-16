@@ -3,7 +3,7 @@ move_manager_node:
     # Simulation parameters
     use_sim_time: true
     # Command topics
-    command_topic: "/move_manager/command"
+    command_topic: "/seed_pdt_drone/command"
     status_topic: "/move_manager/status"
     
     # Path planner interface

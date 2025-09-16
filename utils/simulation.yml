@@ -75,14 +75,14 @@ windows:
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=true
         #- ros2 topic pub --once /fmu/in/tilting_mc_desired_angles px4_msgs/msg/TiltingMcDesiredAngles "{timestamp: $(($(date +%s%N)/1000)), roll_body: 0.0, pitch_body: -0.1}"
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'takeoff'}" --once        # to takeoff
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'go(10.0,5.0,3.0)'}" --once # direct movement without path planning
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(circle(goal1))'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(cover(goal1))'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'flyto(goal1)'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'land'}" --once           # to land
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'stop'}" --once # to stop trajectory
-        #- ros2 topic pub /move_manager/command std_msgs/msg/String "{data: 'teleop'}" --once # NEW: activate teleop mode
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'takeoff'}" --once        # to takeoff
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'go(10.0,5.0,3.0)'}" --once # direct movement without path planning
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'flyto(circle(goal1))'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'flyto(cover(goal1))'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'flyto(goal1)'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'land'}" --once           # to land
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'stop'}" --once # to stop trajectory
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'teleop'}" --once # NEW: activate teleop mode
 # - window_name: monitoring
 #   layout: tiled
 #   panes:

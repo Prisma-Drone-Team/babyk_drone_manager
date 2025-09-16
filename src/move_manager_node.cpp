@@ -110,7 +110,7 @@ MoveManagerNode::~MoveManagerNode() {
 
 void MoveManagerNode::declare_parameters() {
     // Topic parameters
-    this->declare_parameter("command_topic", "/move_manager/command");
+    this->declare_parameter("command_topic", "/seed_pdt_drone/command");
     this->declare_parameter("status_topic", "/move_manager/status");
     this->declare_parameter("path_planner_goal_topic", "/move_base_simple/goal");
     this->declare_parameter("path_planner_status_topic", "/path_planner/status");
