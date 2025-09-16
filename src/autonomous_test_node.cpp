@@ -228,28 +228,36 @@ void AutonomousTestNode::send_land()
 
 void AutonomousTestNode::send_random_flyto()
 {
-    // Avoid repeating the same flyto command
     std::string new_command;
     int max_attempts = 20; // Safety limit to avoid infinite loops
     int attempts = 0;
-    
+
     do {
         // Pick a random goal from goal1 to goal7
         std::uniform_int_distribution<int> goal_dist(0, available_goals_.size() - 1);
         int goal_index = goal_dist(gen_);
-        
-        new_command = "flyto(" + available_goals_[goal_index] + ")";
+
+        // Probabilità 10% per cover/circle, 90% flyto normale
+        double special_prob = static_cast<double>(command_dist_(gen_)) / 100.0;
+        if (special_prob < 0.05) {
+            new_command = "flyto(cover(" + available_goals_[goal_index] + "))";
+        } else if (special_prob < 0.10) {
+            new_command = "flyto(circle(" + available_goals_[goal_index] + "))";
+        } else {
+            new_command = "flyto(" + available_goals_[goal_index] + ")";
+        }
+
         attempts++;
-        
+
         if (attempts >= max_attempts) {
             RCLCPP_WARN(this->get_logger(), "Could not find different goal after %d attempts, allowing repetition", max_attempts);
             break;
         }
-        
+
     } while (new_command == last_command_sent_ && available_goals_.size() > 1);
-    
+
     send_command(new_command);
-    
+
     if (attempts > 1) {
         RCLCPP_INFO(this->get_logger(), "Avoided repeating command, selected different goal after %d attempts", attempts);
     }

@@ -329,6 +329,9 @@ void MoveManagerNode::process_command(const std::vector<std::string>& command_pa
             } else if (command_parts[1].rfind("circle", 0) == 0) { // inizia con "circle"
                 path_mode = "circle";
             }
+            else if (command_parts[1].rfind("cover", 0) != 0 && command_parts[1].rfind("circle", 0) != 0) {
+                path_mode = "flyto";
+            }
         }
         std_msgs::msg::String mode_msg;
         mode_msg.data = path_mode;
