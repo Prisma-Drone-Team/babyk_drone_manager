@@ -68,6 +68,8 @@ MoveManagerNode::MoveManagerNode()
 
     path_mode_pub_ = this->create_publisher<std_msgs::msg::String>("/move_manager/path_mode", 10);
 
+    seed_state_publisher_ = this->create_publisher<std_msgs::msg::String>("/seed_pdt_drone/state", 10);
+
     // Initialize subscribers
     rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
     auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
@@ -333,9 +335,8 @@ void MoveManagerNode::process_command(const std::vector<std::string>& command_pa
                 path_mode = "flyto";
             }
         }
-        std_msgs::msg::String mode_msg;
-        mode_msg.data = path_mode;
-        path_mode_pub_->publish(mode_msg);
+        mode_msg_.data = path_mode;
+        path_mode_pub_->publish(mode_msg_);
 
         handle_flyto_command(command_parts);
     } else if (command == "go") {
@@ -364,6 +365,7 @@ void MoveManagerNode::handle_flyto_command(const std::vector<std::string>& parts
     }
 
     std::string frame = parts[1];
+    frame_flyto_ = frame; // Store for later use (e.g., in circle mode)
     // Estrai il contenuto più interno tra parentesi, se presente
     size_t last_open = frame.rfind('(');
     size_t first_close = frame.find(')', last_open);
@@ -648,6 +650,12 @@ void MoveManagerNode::update_overall_status() {
         overall_status_ = "EXECUTING_TRAJECTORY";
     } else if (traj_interp_status_ == "IDLE" && path_planner_status_ == "PATH_PUBLISHED" && overall_status_ != "PATH_FORWARDED") {
         overall_status_ = "TRAJECTORY_COMPLETED";
+        if (mode_msg_.data == "circle") {
+            RCLCPP_INFO(get_logger(), "Last waypoint sent (circle mode).");
+            std_msgs::msg::String seed_state_msg;
+            seed_state_msg.data = "circle(" + frame_flyto_ + ").done";
+            seed_state_publisher_->publish(seed_state_msg);
+        }
     }
     // Manteniamo lo stato PATH_FORWARDED finché traj_interp non inizia a seguire la traiettoria
     // Keep other statuses as they are

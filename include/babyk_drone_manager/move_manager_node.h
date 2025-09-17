@@ -45,6 +45,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr teleop_active_pub_;  // NEW: teleop active flag
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr path_mode_pub_;    // NEW: current path mode
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr seed_state_publisher_;
 
     // ROS 2 subscribers
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_sub_;
@@ -83,6 +84,8 @@ private:
     std::string current_command_;
     std::string received_command_;
     geometry_msgs::msg::Pose current_pose_;
+    std::string frame_flyto_;
+    std_msgs::msg::String mode_msg_;
     bool odometry_received_;
     std::atomic<bool> running_;
     std::string path_planner_status_;
