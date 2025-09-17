@@ -70,6 +70,8 @@ MoveManagerNode::MoveManagerNode()
 
     seed_state_publisher_ = this->create_publisher<std_msgs::msg::String>("/seed_pdt_drone/state", 10);
 
+    cover_area_pub_ = this->create_publisher<geometry_msgs::msg::Point>("/move_manager/cover_area", 10);
+
     // Initialize subscribers
     rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
     auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
@@ -365,12 +367,51 @@ void MoveManagerNode::handle_flyto_command(const std::vector<std::string>& parts
     }
 
     std::string frame = parts[1];
-    frame_flyto_ = frame; // Store for later use (e.g., in circle mode)
-    // Estrai il contenuto più interno tra parentesi, se presente
-    size_t last_open = frame.rfind('(');
-    size_t first_close = frame.find(')', last_open);
-    if (last_open != std::string::npos && first_close != std::string::npos && first_close > last_open) {
-        frame = frame.substr(last_open + 1, first_close - last_open - 1);
+    frame_flyto_ = frame; // Store for later use
+
+    // If cover(goal,X,Y) then extract goal, X, Y
+    if (frame.rfind("cover", 0) == 0) {
+        // frame is like "cover(goal,X,Y)"
+        size_t open = frame.find('(');
+        size_t close = frame.find(')', open);
+        if (open != std::string::npos && close != std::string::npos && close > open) {
+            std::string args = frame.substr(open + 1, close - open - 1);
+            std::vector<std::string> tokens;
+            size_t start = 0, end = 0;
+            while ((end = args.find(',', start)) != std::string::npos) {
+                tokens.push_back(args.substr(start, end - start));
+                start = end + 1;
+            }
+            tokens.push_back(args.substr(start));
+            // Rimuovi spazi
+            for (auto& s : tokens) {
+                s.erase(0, s.find_first_not_of(" \t"));
+                s.erase(s.find_last_not_of(" \t") + 1);
+            }
+            if (tokens.size() >= 1) frame = tokens[0]; // goal
+            if (tokens.size() >= 3) {
+                try {
+                    double X = std::stod(tokens[1]);
+                    double Y = std::stod(tokens[2]);
+                    geometry_msgs::msg::Point cover_area;
+                    cover_area.x = X;
+                    cover_area.y = Y;
+                    cover_area.z = 0.0;
+                    cover_area_pub_->publish(cover_area);
+
+                    RCLCPP_INFO(get_logger(), "Parsed cover args: goal=%s, X=%.2f, Y=%.2f", frame.c_str(), X, Y);
+                } catch (const std::exception& e) {
+                    RCLCPP_ERROR(get_logger(), "Invalid X or Y in cover: %s", e.what());
+                }
+            }
+        }
+    } else {
+        // Estrai il contenuto più interno tra parentesi, se presente (come già facevi)
+        size_t last_open = frame.rfind('(');
+        size_t first_close = frame.find(')', last_open);
+        if (last_open != std::string::npos && first_close != std::string::npos && first_close > last_open) {
+            frame = frame.substr(last_open + 1, first_close - last_open - 1);
+        }
     }
 
     geometry_msgs::msg::Pose target_pose;

@@ -46,7 +46,8 @@ private:
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr teleop_active_pub_;  // NEW: teleop active flag
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr path_mode_pub_;    // NEW: current path mode
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr seed_state_publisher_;
-
+    rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr cover_area_pub_; 
+    
     // ROS 2 subscribers
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr path_planner_status_sub_;
