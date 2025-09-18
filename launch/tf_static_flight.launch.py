@@ -24,17 +24,23 @@ def generate_launch_description():
     # Goal positions for real arena (5x6 meters)
     goal_positions = [
         # Front row (y = 2.0)
-        {"name": "goal1", "x": 0.0, "y": 2.0, "z": 1.5},   # Center front
-        {"name": "goal2", "x": 2.5, "y": 2.0, "z": 1.5},   # Right front
-        {"name": "goal3", "x": -0.5, "y": 2.0, "z": 1.5},  # Left front
+        # {"name": "goal1", "x": 0.0, "y": 2.0, "z": 1.5},   # Center front
+        # {"name": "goal2", "x": 2.5, "y": 2.0, "z": 1.5},   # Right front
+        # {"name": "goal3", "x": -0.5, "y": 2.0, "z": 1.5},  # Left front
         
-        # Middle row (y = 0.0)
-        {"name": "goal4", "x": 3.0, "y": 0.0, "z": 1.5},   # Far right center
-        {"name": "goal5", "x": 1.5, "y": 0.0, "z": 1.5},   # Right center
+        # # Middle row (y = 0.0)
+        # {"name": "goal4", "x": 3.0, "y": 0.0, "z": 1.5},   # Far right center
+        # {"name": "goal5", "x": 1.5, "y": 0.0, "z": 1.5},   # Right center
         
-        # Back row (y = -2.0)
-        {"name": "goal6", "x": 0.5, "y": -2.0, "z": 1.5},  # Center back
-        {"name": "goal7", "x": 2.0, "y": -2.0, "z": 1.5},  # Right back
+        # # Back row (y = -2.0)
+        # {"name": "goal6", "x": 0.5, "y": -2.0, "z": 1.5},  # Center back
+        # {"name": "goal7", "x": 2.0, "y": -2.0, "z": 1.5},  # Right back
+
+        {"name": "exp00", "x": 1.0, "y": 1.0, "z": 1.5},   # Center front
+        {"name": "exp01", "x": 1.0, "y": 5.0, "z": 1.5},   # Right front
+        {"name": "exp10", "x": 4.0, "y": 1.0, "z": 1.5},  # Left front
+        {"name": "exp11", "x": 4.0, "y": 5.0, "z": 1.5},   # Far right center
+        {"name": "expcen", "x": 3.0, "y": 3.0, "z": 1.5},   # Right center
     ]
     
     for goal in goal_positions:
