@@ -10,7 +10,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 def generate_launch_description():
     parameters = [{
         'frame_id': 'base_link',
-        'map_frame_id': 'map',
+        'map_frame_id': 'drone/map',
         'odom_frame_id': 'odom',
         #'database_path': '/root/ros2_ws/src/pkg/trajectory_planner/config/rtabmap.db',  # rtabmap database
         'subscribe_depth': True,

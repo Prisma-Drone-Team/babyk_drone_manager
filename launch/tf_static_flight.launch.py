@@ -51,6 +51,21 @@ def generate_launch_description():
             parameters=[{'use_sim_time': use_sim_time}]
         )
         tf_nodes.append(tf_node)
+
+    # Add static transform between map and drone/map
+    drone_map_tf_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_pub_drone_map',
+        arguments=[
+            '0', '3', '0',    # translation
+            '0', '0', '0', '1',  # quaternion (no rotation)
+            'map',            # parent frame
+            'drone/map'       # child frame
+        ],
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+    tf_nodes.append(drone_map_tf_node)
     
     return LaunchDescription([
         use_sim_time_arg,

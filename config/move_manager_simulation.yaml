@@ -28,3 +28,7 @@ move_manager_node:
     
     # Simulation parameters
     simulation: true  # Enable TF publishing for simulation
+
+    reference_frame: "drone/map"  # Reference frame for all topics
+    child_frame: "odom"  # Drone's child frame for odometry
+    base_link: "base_link"  # Drone's base link frame

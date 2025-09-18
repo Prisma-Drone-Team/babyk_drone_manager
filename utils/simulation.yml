@@ -16,10 +16,9 @@ windows:
         - cd ~/ros2_ws && source install/setup.bash
         - LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liboctomap.so ros2 run rviz2 rviz2 -d ~/ros2_ws/src/pkg/babyk_drone_manager/rviz/leo.rviz --ros-args -r use_sim_time:=true
     - shell_command:
-        - sleep 20
+        - sleep 5
         - cd ~/ros2_ws && source install/setup.bash
         # - ros2 run plotjuggler plotjuggler
-        - ros2 topic echo /seed_pdt_drone/state
     - shell_command:
         - sleep 1          
         - MicroXRCEAgent udp4 -p 8888

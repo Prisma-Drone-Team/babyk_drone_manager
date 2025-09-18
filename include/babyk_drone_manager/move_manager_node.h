@@ -98,6 +98,9 @@ private:
     rclcpp::Time last_joy_time_;
     rclcpp::TimerBase::SharedPtr joy_timeout_timer_;
     geometry_msgs::msg::Pose last_teleop_pose_;
+    std::string parent_frame_;
+    std::string child_frame_;
+    std::string base_link_frame_;
     
     // Threading
     std::thread command_processor_thread_;

@@ -10,48 +10,31 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 def generate_launch_description():
 
     return LaunchDescription([
-        # Node(
-        #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0', '0', '0', '0.7071068', '0.7071068', '0.0', '0.0', 'odom', 'odomNED']),
-
-        # Node(
-        #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0', '0', ' 0', '0', '0', '3.14159265359', 'base_link_FRD', 'base_link']),  # ZYX
-        # # OAk-D Lite
-        # Node(
-        #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0.15', '0.03', '0.0', '-1.5707','0', '-1.5707', 'base_link', 'x500_depth_0/OakD-Lite/base_link/StereoOV7251']),
-        # Node(
-        #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0.15', '0.03', '0.0',  '-1.5707', '0', '-1.5707', 'base_link', 'x500_depth_0/OakD-Lite/base_link/IMX214']),
-        # Node(
-        #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0.15', '0.03', '0.0', '-1.5707','0', '-1.5707', 'odom', 'odom/x500_depth_0/OakD-Lite/base_link/StereoOV7251']),
-        # Node(
-        #     package='tf2_ros', executable='static_transform_publisher', output='screen',
-        #     arguments=['0.15', '0.03', '0.0',  '-1.5707', '0', '-1.5707', 'odom', 'odom/x500_depth_0/OakD-Lite/base_link/IMX214']),
-
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['18', '4', ' 1.5', '0','0', '0', 'map', 'goal1']),
+            arguments=['18', '5', ' 1.5', '0','0', '0', 'map', 'goal1']),
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['0.5', '6', ' 1.5',  '0', '0', '0', 'map', 'goal2']),
+            arguments=['0.5', '7', ' 1.5',  '0', '0', '0', 'map', 'goal2']),
             
     	Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['8', '4', ' 1.5',  '0', '0', '0', 'map', 'goal3']), 
+            arguments=['8', '5', ' 1.5',  '0', '0', '0', 'map', 'goal3']), 
             
     	Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['6.5', '8', ' 1.5',  '0', '0', '0', 'map', 'goal4']), 
+            arguments=['6.5', '9', ' 1.5',  '0', '0', '0', 'map', 'goal4']), 
     	Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['12', '6.5', ' 1.5',  '0', '0', '0', 'map', 'goal5']), 
+            arguments=['12', '7.5', ' 1.5',  '0', '0', '0', 'map', 'goal5']), 
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['16.5', '5.5', ' 1.5',  '0', '0', '0', 'map', 'goal6']), 
+            arguments=['16.5', '6.5', ' 1.5',  '0', '0', '0', 'map', 'goal6']), 
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['15', '1', ' 1.5',  '0', '0', '0', 'map', 'goal7']), 
+            arguments=['15', '2', ' 1.5',  '0', '0', '0', 'map', 'goal7']), 
+        
+        Node(
+            package='tf2_ros', executable='static_transform_publisher', output='screen',
+            arguments=['0', '1', ' 0.0',  '0', '0', '0', 'map', 'drone/map']), 
     ])

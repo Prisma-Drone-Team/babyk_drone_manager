@@ -31,12 +31,16 @@ MoveManagerNode::MoveManagerNode()
     takeoff_altitude_ = this->get_parameter("takeoff_altitude").as_double();
     landing_altitude_ = this->get_parameter("landing_altitude").as_double();
     simulation_mode_ = this->get_parameter("simulation").as_bool();
+    parent_frame_ = this->get_parameter("reference_frame").as_string();
+    child_frame_ = this->get_parameter("child_frame").as_string();
+    base_link_frame_ = this->get_parameter("base_link").as_string();
 
     RCLCPP_INFO(get_logger(), "Move Manager Node initialized");
     RCLCPP_INFO(get_logger(), "  Command topic: %s", command_topic_.c_str());
     RCLCPP_INFO(get_logger(), "  Takeoff altitude: %.2f m", takeoff_altitude_);
     RCLCPP_INFO(get_logger(), "  Landing altitude: %.2f m", landing_altitude_);
     RCLCPP_INFO(get_logger(), "  Simulation mode: %s", simulation_mode_ ? "enabled" : "disabled");
+    RCLCPP_INFO(get_logger(), "  Reference frame: %s, Child frame: %s, Base link frame: %s", parent_frame_.c_str(), child_frame_.c_str(), base_link_frame_.c_str());
 
     // Initialize TF2
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -130,6 +134,11 @@ void MoveManagerNode::declare_parameters() {
     
     // Simulation parameter
     this->declare_parameter("simulation", false);
+
+    // Frame parameters
+    this->declare_parameter("reference_frame", "map");
+    this->declare_parameter("child_frame", "odom");
+    this->declare_parameter("base_link", "base_link");
 }
 
 void MoveManagerNode::command_callback(const std_msgs::msg::String::SharedPtr msg) {
@@ -234,8 +243,8 @@ void MoveManagerNode::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr
         
         // Set the header
         transform_stamped.header.stamp = msg->header.stamp;
-        transform_stamped.header.frame_id = "odom";
-        transform_stamped.child_frame_id = "base_link";
+        transform_stamped.header.frame_id = child_frame_;
+        transform_stamped.child_frame_id = base_link_frame_;
 
         // Set translation (position)
         transform_stamped.transform.translation.x = msg->pose.pose.position.x;
@@ -345,8 +354,12 @@ void MoveManagerNode::process_command(const std::vector<std::string>& command_pa
         handle_go_command(command_parts);
     } else if (command == "takeoff") {
         handle_takeoff_command(command_parts);
+        mode_msg_.data = "takeoff";
+        path_mode_pub_->publish(mode_msg_);
     } else if (command == "land") {
         handle_land_command(command_parts);
+        mode_msg_.data = "land";
+        path_mode_pub_->publish(mode_msg_);
     } else if (command == "stop") {
         handle_stop_command();
     } else if (command == "teleop") {
@@ -418,8 +431,19 @@ void MoveManagerNode::handle_flyto_command(const std::vector<std::string>& parts
     if (lookup_transform(frame, target_pose)) {
         geometry_msgs::msg::PoseStamped goal_msg;
         goal_msg.header.stamp = this->get_clock()->now();
-        goal_msg.header.frame_id = "map";
+        goal_msg.header.frame_id = parent_frame_;
         goal_msg.pose = target_pose;
+
+        try {
+            geometry_msgs::msg::PoseStamped goal_in_map = goal_msg;
+            geometry_msgs::msg::PoseStamped goal_in_drone_map = tf_buffer_->transform(
+                goal_in_map, parent_frame_, tf2::durationFromSec(0.1));
+            goal_msg = goal_in_drone_map;
+            goal_msg.header.frame_id = parent_frame_;
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_WARN(get_logger(), "Could not transform goal from map to drone/map: %s", ex.what());
+            // fallback: pubblica comunque in map
+        }
 
         path_planner_goal_pub_->publish(goal_msg);
 
@@ -497,19 +521,25 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*p
     }
 
     geometry_msgs::msg::Pose takeoff_pose;
-    {
+    bool used_tf = false;
+    // Prova a usare la trasformazione in "map" tramite lookup_transform
+    if (lookup_transform(base_link_frame_, takeoff_pose)) {
+        RCLCPP_INFO(get_logger(), "Takeoff using TF transform (base_link->map): [%.3f, %.3f]", 
+                    takeoff_pose.position.x, takeoff_pose.position.y);
+        used_tf = true;
+    } else {
+        // Fallback: usa la logica attuale
         std::lock_guard<std::mutex> lock(state_mutex_);
-        // Always use current drone position for X and Y (not teleop pose)
         takeoff_pose = current_pose_;
-        RCLCPP_INFO(get_logger(), "Takeoff from current position: [%.3f, %.3f] to altitude %.3f", 
-                   takeoff_pose.position.x, takeoff_pose.position.y, takeoff_altitude_);
+        RCLCPP_WARN(get_logger(), "TF transform failed, takeoff from current odometry pose: [%.3f, %.3f]", 
+                    takeoff_pose.position.x, takeoff_pose.position.y);
     }
     takeoff_pose.position.z = takeoff_altitude_;  // Only change altitude
 
     // Create SINGLE waypoint path for takeoff to avoid yaw calculation
     nav_msgs::msg::Path takeoff_path;
     takeoff_path.header.stamp = this->get_clock()->now();
-    takeoff_path.header.frame_id = "map";
+    takeoff_path.header.frame_id = parent_frame_;
     
     // Add ONLY the target position (no start position to avoid horizontal movement calculation)
     geometry_msgs::msg::PoseStamped target_pose;
@@ -524,7 +554,8 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*p
         overall_status_ = "TAKING_OFF";
     }
 
-    RCLCPP_INFO(get_logger(), "Sent takeoff command to traj_interp: altitude %.3f (single waypoint)", takeoff_altitude_);
+    RCLCPP_INFO(get_logger(), "Sent takeoff command to traj_interp: altitude %.3f (single waypoint)%s", 
+                takeoff_altitude_, used_tf ? " [TF used]" : " [fallback]");
 }
 
 void MoveManagerNode::handle_land_command(const std::vector<std::string>& /*parts*/) {
@@ -536,15 +567,23 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& /*part
     }
     
     geometry_msgs::msg::Pose land_pose;
-    {
+    bool used_tf = false;
+    // Prova a usare la trasformazione in "map" tramite lookup_transform
+    if (lookup_transform(base_link_frame_, land_pose)) {
+        RCLCPP_INFO(get_logger(), "Landing using TF transform (base_link->map): [%.3f, %.3f, %.3f]", 
+                    land_pose.position.x, land_pose.position.y, land_pose.position.z);
+        used_tf = true;
+    } else {
+        // Fallback: usa la logica attuale
         std::lock_guard<std::mutex> lock(state_mutex_);
-        // Use last teleop pose if available and valid, otherwise use current odometry
         if (last_teleop_pose_.position.x != 0.0 || last_teleop_pose_.position.y != 0.0 || last_teleop_pose_.position.z != 0.0) {
             land_pose = last_teleop_pose_;
             RCLCPP_INFO(get_logger(), "Landing from last teleop position: [%.3f, %.3f, %.3f]", 
-                       land_pose.position.x, land_pose.position.y, land_pose.position.z);
+                        land_pose.position.x, land_pose.position.y, land_pose.position.z);
         } else {
             land_pose = current_pose_;  // Keep current orientation
+            RCLCPP_WARN(get_logger(), "TF transform failed, landing from current odometry pose: [%.3f, %.3f, %.3f]", 
+                        land_pose.position.x, land_pose.position.y, land_pose.position.z);
         }
     }
     land_pose.position.z = landing_altitude_; // Use configurable landing altitude
@@ -552,7 +591,7 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& /*part
     // Create SINGLE waypoint path for landing to avoid yaw calculation
     nav_msgs::msg::Path land_path;
     land_path.header.stamp = this->get_clock()->now();
-    land_path.header.frame_id = "map";
+    land_path.header.frame_id = parent_frame_;
     
     // Add ONLY the target position (no start position to avoid horizontal movement calculation)
     geometry_msgs::msg::PoseStamped target_pose;
@@ -567,14 +606,15 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& /*part
         overall_status_ = "LANDING";
     }
     
-    RCLCPP_INFO(get_logger(), "Sent land command to traj_interp: altitude %.3f (single waypoint)", landing_altitude_);
+    RCLCPP_INFO(get_logger(), "Sent land command to traj_interp: altitude %.3f (single waypoint)%s", 
+                landing_altitude_, used_tf ? " [TF used]" : " [fallback]");
 }
 
 void MoveManagerNode::handle_stop_command() {
     // Create empty path to stop trajectory execution
     nav_msgs::msg::Path empty_path;
     empty_path.header.stamp = this->get_clock()->now();
-    empty_path.header.frame_id = "map";
+    empty_path.header.frame_id = parent_frame_;
     
     traj_interp_path_pub_->publish(empty_path);
     
@@ -637,7 +677,7 @@ std::vector<std::string> MoveManagerNode::parse_command(const std::string& comma
 bool MoveManagerNode::lookup_transform(const std::string& frame_name, geometry_msgs::msg::Pose& pose) {
     try {
         geometry_msgs::msg::TransformStamped tf_stamped = 
-            tf_buffer_->lookupTransform("map", frame_name, tf2::TimePointZero);
+            tf_buffer_->lookupTransform(parent_frame_, frame_name, tf2::TimePointZero);
         
         pose.position.x = tf_stamped.transform.translation.x;
         pose.position.y = tf_stamped.transform.translation.y;
@@ -655,7 +695,7 @@ bool MoveManagerNode::lookup_transform(const std::string& frame_name, geometry_m
 nav_msgs::msg::Path MoveManagerNode::create_direct_path(const geometry_msgs::msg::Pose& target_pose) {
     nav_msgs::msg::Path path;
     path.header.stamp = this->get_clock()->now();
-    path.header.frame_id = "map";
+    path.header.frame_id = parent_frame_;
     
     // Add current position as start
     geometry_msgs::msg::PoseStamped start_pose;
@@ -716,7 +756,7 @@ void MoveManagerNode::static_tf_pub() {
     // Transform: base_link -> baby_k_0/OakD-Lite/base_link/IMX214
     // NOTE: For standard PX4 firmware, use x500_0/OakD-Lite/base_link/IMX214 instead of baby_k_0
     t.header.stamp = this->get_clock()->now();
-    t.header.frame_id = "base_link";
+    t.header.frame_id = base_link_frame_;
     t.child_frame_id = "baby_k_0/OakD-Lite/base_link/IMX214"; // For standard PX4: use "x500_0/OakD-Lite/base_link/IMX214"
 
     t.transform.translation.x = 0.15;
@@ -734,7 +774,7 @@ void MoveManagerNode::static_tf_pub() {
 
     // Transform: base_link -> base_link_FRD  
     t.header.stamp = this->get_clock()->now();
-    t.header.frame_id = "base_link";
+    t.header.frame_id = base_link_frame_;
     t.child_frame_id = "base_link_FRD";
 
     t.transform.translation.x = 0.0;
@@ -781,7 +821,7 @@ void MoveManagerNode::handle_teleop_command() {
     // PRIMA: Ferma la traiettoria attuale con path vuoto
     nav_msgs::msg::Path empty_path;
     empty_path.header.stamp = this->get_clock()->now();
-    empty_path.header.frame_id = "map";
+    empty_path.header.frame_id = parent_frame_;
     traj_interp_path_pub_->publish(empty_path);
     RCLCPP_INFO(get_logger(), "Sent empty path to stop current trajectory");
     
