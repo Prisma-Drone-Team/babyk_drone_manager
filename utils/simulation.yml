@@ -16,7 +16,7 @@ windows:
         - cd ~/ros2_ws && source install/setup.bash
         - LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liboctomap.so ros2 run rviz2 rviz2 -d ~/ros2_ws/src/pkg/babyk_drone_manager/rviz/leo.rviz --ros-args -r use_sim_time:=true
     - shell_command:
-        - sleep 5
+        - sleep 25
         - cd ~/ros2_ws && source install/setup.bash
         # - ros2 run plotjuggler plotjuggler
     - shell_command:
@@ -29,7 +29,7 @@ windows:
         - sleep 2           
         # NOTE: For standard PX4 firmware, use '/model/x500_0/odometry' instead of baby_k_0
         - ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo /camera@sensor_msgs/msg/Image@gz.msgs.Image /depth_camera@sensor_msgs/msg/Image@gz.msgs.Image 
-          /model/baby_k_0/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry  /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock  # For standard PX4: use '/model/x500_0/odometry'
+          /model/baby_k_0/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry  /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock   /depth_camera/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked # For standard PX4: use '/model/x500_0/odometry'
     - shell_command:
         - sleep 5  
         - cd ~/ros2_ws && source install/setup.bash
@@ -63,14 +63,6 @@ windows:
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch teleop_node enhanced_teleop.launch.py simulation:=true
     - shell_command:
-        - sleep 20
-        - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch path_planner path_planner.launch.py config_file:=/root/ros2_ws/src/pkg/path_planner/config/path_planner_simulation.yaml
-    - shell_command:
-        - sleep 35
-        - cd ~/ros2_ws && source install/setup.bash
-        - ros2 topic echo /trajectory_interpolator/status 
-    - shell_command:
         - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=true
@@ -79,27 +71,31 @@ windows:
         #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'go(10.0,5.0,3.0)'}" --once # direct movement without path planning
         #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'flyto(circle(goal1))'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
         #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'flyto(cover(goal1))'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'cover((1,1),(1,4),(4,4),(4,1))'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
         #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'flyto(goal1)'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
         #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'land'}" --once           # to land
         #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'stop'}" --once # to stop trajectory
         #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'teleop'}" --once # NEW: activate teleop mode
-# - window_name: monitoring
-#   layout: tiled
-#   panes:
-#     - shell_command:
-#         - sleep 30
-#         - cd ~/ros2_ws && source install/setup.bash
-#         - ros2 topic echo /trajectory_path --ros-args -r use_sim_time:=true
-#     - shell_command:
-#         - sleep 30
-#         - cd ~/ros2_ws && source install/setup.bash
-#         - ros2 topic echo /trajectory_interpolator/status --ros-args -r use_sim_time:=true
-#     - shell_command:
-#         - sleep 30
-#         - cd ~/ros2_ws && source install/setup.bash
-#         # Monitor octomap for path planning
-#         - ros2 topic echo /octomap_binary --field data.data | head -c 100 --ros-args -r use_sim_time:=true
-#     - shell_command:
-#         - sleep 30
-#         - cd ~/ros2_ws && source install/setup.bash
-#         #- ros2 run plotjuggler plotjuggler
+    - shell_command:
+        - sleep 20
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch path_planner path_planner.launch.py config_file:=/root/ros2_ws/src/pkg/path_planner/config/path_planner_simulation.yaml
+- window_name: monitoring
+  layout: tiled
+  panes:
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /move_manager/status
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /path_planner/status
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /seed_pdt_drone/state
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /trajectory_interpolator/status 

@@ -240,7 +240,8 @@ void AutonomousTestNode::send_random_flyto()
         // Probabilità 10% per cover/circle, 90% flyto normale
         double special_prob = static_cast<double>(command_dist_(gen_)) / 100.0;
         if (special_prob < 0.05) {
-            new_command = "flyto(cover(" + available_goals_[goal_index] + ",2.0,5.0))";
+            // new_command = "flyto(cover(" + available_goals_[goal_index] + ",2.0,5.0))";
+            new_command = "cover((1,1),(1,4),(4,4),(4,1))"; // new standard for area covering
         } else if (special_prob < 0.10) {
             new_command = "flyto(circle(" + available_goals_[goal_index] + "))";
         } else {

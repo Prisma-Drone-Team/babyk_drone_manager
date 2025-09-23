@@ -89,6 +89,9 @@ MoveManagerNode::MoveManagerNode()
     traj_interp_status_sub_ = this->create_subscription<std_msgs::msg::String>(
         traj_interp_status_topic_, 10, std::bind(&MoveManagerNode::traj_interp_status_callback, this, std::placeholders::_1));
 
+    interp_state_sub_ = this->create_subscription<std_msgs::msg::String>(
+        "/traj_interp/completed", 10, std::bind(&MoveManagerNode::interpolator_state_callback, this, std::placeholders::_1));
+
     planned_path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
         planned_path_topic_, 10, std::bind(&MoveManagerNode::planned_path_callback, this, std::placeholders::_1));
 
@@ -157,6 +160,27 @@ void MoveManagerNode::traj_interp_status_callback(const std_msgs::msg::String::S
     std::lock_guard<std::mutex> lock(state_mutex_);
     traj_interp_status_ = msg->data;
     update_overall_status();
+}
+
+void MoveManagerNode::interpolator_state_callback(const std_msgs::msg::String::SharedPtr msg) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    interpolator_state_ = msg->data;
+    if (interpolator_state_ == "armed"){
+        std_msgs::msg::String seed_state_msg;
+        seed_state_msg.data = "arm";
+        seed_state_publisher_->publish(seed_state_msg);
+    }
+    else if (interpolator_state_ == "disarmed"){
+        std_msgs::msg::String seed_state_msg;
+        seed_state_msg.data = "~arm";
+        seed_state_publisher_->publish(seed_state_msg);
+    }
+    // else if ((mode_msg_.data == "takeoff" || mode_msg_.data == "land") && interpolator_state_ == "traj_completed") {
+    //     overall_status_ = (mode_msg_.data == "takeoff") ? "TAKEOFF_COMPLETED" : "LAND_COMPLETED";
+    //     std_msgs::msg::String seed_state_msg;
+    //     seed_state_msg.data = mode_msg_.data + ".done";
+    //     seed_state_publisher_->publish(seed_state_msg);
+    // }
 }
 
 void MoveManagerNode::joy_callback(const sensor_msgs::msg::Joy::SharedPtr /*msg*/) {
@@ -335,7 +359,12 @@ void MoveManagerNode::process_command(const std::vector<std::string>& command_pa
 
     std::string path_mode = "flyto"; // default
     
-   if (command == "flyto") {
+   if (command == "cover") {
+        path_mode = "cover";
+        mode_msg_.data = path_mode;
+        path_mode_pub_->publish(mode_msg_);
+        handle_cover_command(command_parts);
+    } else if (command == "flyto") {
         if (command_parts.size() > 1) {
             if (command_parts[1].rfind("cover", 0) == 0) { // inizia con "cover"
                 path_mode = "cover";
@@ -369,6 +398,93 @@ void MoveManagerNode::process_command(const std::vector<std::string>& command_pa
         std::lock_guard<std::mutex> lock(state_mutex_);
         overall_status_ = "ERROR_UNKNOWN_COMMAND";
     }
+}
+
+void MoveManagerNode::handle_cover_command(const std::vector<std::string>& parts) {
+    if (parts.size() < 2) {
+        RCLCPP_ERROR(get_logger(), "cover command requires 4 corners: cover((x1,y1),(x2,y2),(x3,y3),(x4,y4))");
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "ERROR_INVALID_COVER";
+        return;
+    }
+
+    // Parsifica i 4 vertici dal comando
+    std::vector<std::pair<double, double>> corners = parse_corners_from_command(parts[1]);
+    if (corners.size() != 4) {
+        RCLCPP_ERROR(get_logger(), "cover command requires exactly 4 corners");
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "ERROR_INVALID_COVER";
+        return;
+    }
+
+    // Trova lo spigolo inferiore sinistro (min x, poi min y)
+    auto lower_left = std::min_element(
+        corners.begin(), corners.end(),
+        [](const std::pair<double, double>& a, const std::pair<double, double>& b) {
+            return (a.first < b.first) || (a.first == b.first && a.second < b.second);
+        }
+    );
+    double x_spigolo = lower_left->first;
+    double y_spigolo = lower_left->second;
+
+    // Calcola lunghezza (tra primo e secondo vertice) e larghezza (tra primo e quarto vertice)
+    // (Puoi adattare questa logica se vuoi calcolare rispetto ai vertici ordinati)
+    auto [x1, y1] = corners[0];
+    auto [x2, y2] = corners[1];
+    auto [x4, y4] = corners[3];
+    double length = hypot(x2 - x1, y2 - y1);
+    double width  = hypot(x4 - x1, y4 - y1);
+
+    // Pubblica la zona di cover
+    geometry_msgs::msg::Point cover_area;
+    cover_area.x = length;
+    cover_area.y = width;
+    cover_area.z = 0.0;
+    cover_area_pub_->publish(cover_area);
+
+    // Crea la pose dello spigolo inferiore sinistro
+    geometry_msgs::msg::PoseStamped spigolo_pose;
+    spigolo_pose.header.stamp = this->get_clock()->now();
+    spigolo_pose.header.frame_id = "map"; 
+    spigolo_pose.pose.position.x = x_spigolo;
+    spigolo_pose.pose.position.y = y_spigolo;
+    spigolo_pose.pose.position.z = 1.5; // quota desiderata, puoi parametrizzare
+    spigolo_pose.pose.orientation.w = 1.0; // nessuna rotazione
+
+    // Trasforma la pose da "map" a "drone/map" se possibile
+    try {
+        geometry_msgs::msg::PoseStamped spigolo_pose_drone_map = tf_buffer_->transform(
+            spigolo_pose, parent_frame_, tf2::durationFromSec(0.1));
+        spigolo_pose = spigolo_pose_drone_map;
+        spigolo_pose.header.frame_id = parent_frame_;
+    } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(get_logger(), "Could not transform spigolo pose from map to drone/map: %s", ex.what());
+        // fallback: pubblica comunque in map
+    }
+
+    // Invia il goal al path planner
+    path_planner_goal_pub_->publish(spigolo_pose);
+
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "PLANNING_PATH";
+    }
+
+    RCLCPP_INFO(get_logger(), "Cover: starting frame=(%.2f,%.2f), length=%.2f, width=%.2f", x_spigolo, y_spigolo, length, width);
+    RCLCPP_INFO(get_logger(), "Published lower-left corner as start pose for path planner.");
+}
+
+std::vector<std::pair<double, double>> MoveManagerNode::parse_corners_from_command(const std::string& arg) {
+    std::vector<std::pair<double, double>> corners;
+    std::regex re(R"(\(([^,]+),([^)]+)\))");
+    auto begin = std::sregex_iterator(arg.begin(), arg.end(), re);
+    auto end = std::sregex_iterator();
+    for (auto i = begin; i != end; ++i) {
+        double x = std::stod((*i)[1]);
+        double y = std::stod((*i)[2]);
+        corners.emplace_back(x, y);
+    }
+    return corners;
 }
 
 void MoveManagerNode::handle_flyto_command(const std::vector<std::string>& parts) {
@@ -730,11 +846,15 @@ void MoveManagerNode::update_overall_status() {
     } else if (traj_interp_status_ == "FOLLOWING_TRAJECTORY") {
         overall_status_ = "EXECUTING_TRAJECTORY";
     } else if (traj_interp_status_ == "IDLE" && path_planner_status_ == "PATH_PUBLISHED" && overall_status_ != "PATH_FORWARDED") {
-        overall_status_ = "TRAJECTORY_COMPLETED";
-        if (mode_msg_.data == "circle") {
-            RCLCPP_INFO(get_logger(), "Last waypoint sent (circle mode).");
+        overall_status_ = "TRAJECTORY_COMPLETED";  
+        if (mode_msg_.data == "circle" || mode_msg_.data == "flyto") {
+        std_msgs::msg::String seed_state_msg;
+        seed_state_msg.data = frame_flyto_ + ".done";
+        seed_state_publisher_->publish(seed_state_msg);
+        }
+        else if (mode_msg_.data == "cover"){
             std_msgs::msg::String seed_state_msg;
-            seed_state_msg.data = "circle(" + frame_flyto_ + ").done";
+            seed_state_msg.data = current_command_ + ".done";
             seed_state_publisher_->publish(seed_state_msg);
         }
     }
@@ -759,11 +879,27 @@ void MoveManagerNode::static_tf_pub() {
     t.header.frame_id = base_link_frame_;
     t.child_frame_id = "baby_k_0/OakD-Lite/base_link/IMX214"; // For standard PX4: use "x500_0/OakD-Lite/base_link/IMX214"
 
-    t.transform.translation.x = 0.15;
-    t.transform.translation.y = 0.03;
-    t.transform.translation.z = 0.0;  // Camera at same height as base_link
+    t.transform.translation.x = 0.2;
+    t.transform.translation.y = 0.0;
+    t.transform.translation.z = -0.03;  // Camera at same height as base_link
 
     tf2::Quaternion q;
+    q.setRPY(-1.5707, 0, -1.5707);
+    t.transform.rotation.x = q.x();
+    t.transform.rotation.y = q.y();
+    t.transform.rotation.z = q.z();
+    t.transform.rotation.w = q.w();
+    
+    static_tf_broadcaster_->sendTransform(t);
+
+    t.header.stamp = this->get_clock()->now();
+    t.header.frame_id = base_link_frame_;
+    t.child_frame_id = "baby_k_0/OakD-Lite/base_link/StereoOV7251"; // For standard PX4: use "x500_0/OakD-Lite/base_link/IMX214"
+
+    t.transform.translation.x = 0.2;
+    t.transform.translation.y = 0.0;
+    t.transform.translation.z = -0.03;
+
     q.setRPY(-1.5707, 0, -1.5707);
     t.transform.rotation.x = q.x();
     t.transform.rotation.y = q.y();

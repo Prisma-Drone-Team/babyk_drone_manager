@@ -32,6 +32,7 @@
 #include <sstream>
 #include <thread>
 #include <mutex>
+#include <regex>
 
 class MoveManagerNode : public rclcpp::Node {
 public:
@@ -52,6 +53,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr path_planner_status_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr traj_interp_status_sub_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr interp_state_sub_;
     rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr planned_path_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_sub_;
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
@@ -101,6 +103,7 @@ private:
     std::string parent_frame_;
     std::string child_frame_;
     std::string base_link_frame_;
+    std::string interpolator_state_;
     
     // Threading
     std::thread command_processor_thread_;
@@ -110,6 +113,7 @@ private:
     void command_callback(const std_msgs::msg::String::SharedPtr msg);
     void path_planner_status_callback(const std_msgs::msg::String::SharedPtr msg);
     void traj_interp_status_callback(const std_msgs::msg::String::SharedPtr msg);
+    void interpolator_state_callback(const std_msgs::msg::String::SharedPtr msg);
     void planned_path_callback(const nav_msgs::msg::Path::SharedPtr msg);
     void odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
@@ -121,19 +125,21 @@ private:
     
     // Command handlers
     void handle_flyto_command(const std::vector<std::string>& parts);
+    void handle_cover_command(const std::vector<std::string>& parts);
     void handle_go_command(const std::vector<std::string>& parts);
     void handle_takeoff_command(const std::vector<std::string>& parts);
     void handle_land_command(const std::vector<std::string>& parts);
     void handle_stop_command();
     void handle_teleop_command();
     void handle_circle_command(const std::vector<std::string>& parts);
-    void handle_cover_command(const std::vector<std::string>& parts);
     // Utility functions
     std::vector<std::string> parse_command(const std::string& command);
     bool lookup_transform(const std::string& frame_name, geometry_msgs::msg::Pose& pose);
     nav_msgs::msg::Path create_direct_path(const geometry_msgs::msg::Pose& target_pose);
     void update_overall_status();
     void declare_parameters();
+    std::vector<std::pair<double, double>> parse_corners_from_command(const std::string& arg);
+
     
     // Simulation TF functions
     void timer_tf_callback();
