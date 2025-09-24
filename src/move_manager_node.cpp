@@ -845,6 +845,11 @@ void MoveManagerNode::update_overall_status() {
         overall_status_ = "PLANNING_FAILED";
     } else if (traj_interp_status_ == "FOLLOWING_TRAJECTORY") {
         overall_status_ = "EXECUTING_TRAJECTORY";
+        if (mode_msg_.data == "circle" && interpolator_state_ == "circle_run" ) {
+            std_msgs::msg::String seed_state_msg;
+            seed_state_msg.data = frame_flyto_ + ".running";
+            seed_state_publisher_->publish(seed_state_msg);
+        }
     } else if (traj_interp_status_ == "IDLE" && path_planner_status_ == "PATH_PUBLISHED" && overall_status_ != "PATH_FORWARDED") {
         overall_status_ = "TRAJECTORY_COMPLETED";  
         if (mode_msg_.data == "circle" || mode_msg_.data == "flyto") {
