@@ -25,6 +25,7 @@
 #include <tf2/exceptions.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2/LinearMath/Quaternion.h>
+#include <geometry_msgs/msg/polygon_stamped.hpp>
 
 #include <memory>
 #include <string>
@@ -48,6 +49,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr path_mode_pub_;    // NEW: current path mode
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr seed_state_publisher_;
     rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr cover_area_pub_; 
+    rclcpp::Publisher<geometry_msgs::msg::PolygonStamped>::SharedPtr cover_area_polygon_pub_;
     
     // ROS 2 subscribers
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_sub_;
@@ -101,6 +103,7 @@ private:
     rclcpp::TimerBase::SharedPtr joy_timeout_timer_;
     geometry_msgs::msg::Pose last_teleop_pose_;
     std::string parent_frame_;
+    std::string fixed_frame_;
     std::string child_frame_;
     std::string base_link_frame_;
     std::string interpolator_state_;
