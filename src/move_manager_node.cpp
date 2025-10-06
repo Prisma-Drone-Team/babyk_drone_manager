@@ -180,6 +180,11 @@ void MoveManagerNode::interpolator_state_callback(const std_msgs::msg::String::S
         seed_state_msg.data = "-arm";
         seed_state_publisher_->publish(seed_state_msg);
     }
+    else if (interpolator_state_ == "flyto_fail"){
+        std_msgs::msg::String seed_state_msg;
+        seed_state_msg.data = current_command_+".fail";
+        seed_state_publisher_->publish(seed_state_msg);
+    }
     // else if ((mode_msg_.data == "takeoff" || mode_msg_.data == "land") && interpolator_state_ == "traj_completed") {
     //     overall_status_ = (mode_msg_.data == "takeoff") ? "TAKEOFF_COMPLETED" : "LAND_COMPLETED";
     //     std_msgs::msg::String seed_state_msg;
@@ -444,7 +449,7 @@ void MoveManagerNode::handle_cover_command(const std::vector<std::string>& parts
     }
 
     // Trova il vertice con min x e min y (in basso a sinistra)
-auto lower_left = std::min_element(
+    auto lower_left = std::min_element(
         corners.begin(), corners.end(),
         [](const std::pair<double, double>& a, const std::pair<double, double>& b) {
             return (a.first < b.first) || (a.first == b.first && a.second < b.second);
@@ -900,10 +905,17 @@ void MoveManagerNode::update_overall_status() {
         seed_state_msg.data = frame_flyto_ + ".done";
         seed_state_publisher_->publish(seed_state_msg);
         }
-        else if (mode_msg_.data == "cover" && interpolator_state_ == "cover_done"){
-            std_msgs::msg::String seed_state_msg;
-            seed_state_msg.data = current_command_ + ".done";
-            seed_state_publisher_->publish(seed_state_msg);
+        else if (mode_msg_.data == "cover"){
+            if(interpolator_state_ == "cover_done"){
+                std_msgs::msg::String seed_state_msg;
+                seed_state_msg.data = current_command_ + ".done";
+                seed_state_publisher_->publish(seed_state_msg);
+            }
+            else if ((interpolator_state_ == "cover_failed")){
+                std_msgs::msg::String seed_state_msg;
+                seed_state_msg.data = current_command_ + ".fail";
+                seed_state_publisher_->publish(seed_state_msg);
+            }
         }
     }
     // Manteniamo lo stato PATH_FORWARDED finché traj_interp non inizia a seguire la traiettoria
