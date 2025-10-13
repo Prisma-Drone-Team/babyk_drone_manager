@@ -60,6 +60,19 @@ def generate_launch_description():
             parameters=parameters,
             remappings=remappings),
 
+        # Point cloud to obstacle cloud converter for local planner
+        Node(
+            package='rtabmap_util', executable='point_cloud_assembler', output='screen',
+            parameters=[{
+                'use_sim_time': True,
+                'max_clouds': 10,
+                'fixed_frame_id': 'drone/map'
+            }],
+            remappings=[
+                ('cloud', '/rtabmap/cloud_map'),
+                ('assembled_cloud', '/obstacle_cloud')
+            ]),
+
         # RTABMap visualization node for octomap publishing - DISABLED to avoid GUI
         # Node(
         #     package='rtabmap_viz', executable='rtabmap_viz', output='screen',

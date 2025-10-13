@@ -14,7 +14,11 @@ windows:
     - shell_command:
         - sleep 10
         - cd ~/dev_ws && source install/setup.bash
-        - ros2 launch babyk_drone_manager tf_static_flight.launch.py use_sim_time:=false
+        - ros2 launch aruco_detector_ocv_ros2 detector_launch.py
+    - shell_command:
+        - sleep 10
+        - cd ~/dev_ws && source install/setup.bash
+        - ros2 launch babyk_drone_manager tf_static_leo.launch.py use_sim_time:=false
   - window_name: planning
     layout: tiled
     panes:

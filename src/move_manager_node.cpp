@@ -900,10 +900,17 @@ void MoveManagerNode::update_overall_status() {
         seed_state_msg.data = frame_flyto_ + ".done";
         seed_state_publisher_->publish(seed_state_msg);
         }
-        else if (mode_msg_.data == "cover" && interpolator_state_ == "cover_done"){
-            std_msgs::msg::String seed_state_msg;
-            seed_state_msg.data = current_command_ + ".done";
-            seed_state_publisher_->publish(seed_state_msg);
+        else if (mode_msg_.data == "cover"){
+            if(interpolator_state_ == "cover_done"){
+                std_msgs::msg::String seed_state_msg;
+                seed_state_msg.data = current_command_ + ".done";
+                seed_state_publisher_->publish(seed_state_msg);
+            }
+            else if ((interpolator_state_ == "cover_failed")){
+                std_msgs::msg::String seed_state_msg;
+                seed_state_msg.data = current_command_ + ".failed";
+                seed_state_publisher_->publish(seed_state_msg);
+            }
         }
     }
     // Manteniamo lo stato PATH_FORWARDED finché traj_interp non inizia a seguire la traiettoria
