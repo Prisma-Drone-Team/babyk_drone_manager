@@ -1,0 +1,29 @@
+su usainbot2. 4 terminali
+
+primo terminale (NB senza il docker compose up di sotto già attivo crasha):
+$ export ROS_DOMAIN_ID=17
+$ cd DroneContest/leonardo_managers/src/gcs_manager/scripts
+$ python3 gcs_http_bridge.python
+
+secondo terminale: 
+$ export ROS_DOMAIN_ID=17
+$ cd DroneContest/LDC_2025_server_release/scripts
+docker compose up
+
+per modificare le missioni che vengono generate basta modificare il file warmrun_mission.yaml
+
+terzo terminale:
+$ export ROS_DOMAIN_ID=17
+$ cd DroneContest/leonardo_managers
+$ ./docker_run pdt_img
+$ export ROS_DOMAIN_ID=17
+$ ros2 run seed seed pdt_drone
+
+quarto terminale
+$ export ROS_DOMAIN_ID=17
+$ cd DroneContest/leonardo_managers
+$ docker exec -it pdt_img bash
+$ export ROS_DOMAIN_ID=17
+$ ros2 topic pub /seed/state std_msgs/msg/String 'data: start' --once
+
+sulla mia macchina faccio partire il simulation.yml come sempre e killo l'autonomous test node
