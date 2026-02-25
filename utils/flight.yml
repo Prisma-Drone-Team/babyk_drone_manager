@@ -18,7 +18,7 @@ windows:
     - shell_command:
         - sleep 8
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch drone_odometry2 slam_leonardo.launch.py
+        - ros2 launch drone_odometry slam_leonardo.launch.py
   - window_name: utils
     layout: tiled
     panes:

@@ -16,7 +16,7 @@ def generate_launch_description():
     return LaunchDescription([
 
         launch_ros.actions.Node(
-            package='drone_odometry2',
+            package='drone_odometry',
             executable='px4_tf_pub',
             name='px4_tf_pub',
             output='screen',
