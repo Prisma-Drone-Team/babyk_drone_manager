@@ -2,6 +2,16 @@ session_name: path_planner_simulation
 socket_name: drone_pathplanner
 environment:
   ROS_DOMAIN_ID: "17"
+  # PX4 Configuration
+  PX4_SYS_AUTOSTART: "4010"
+  PX4_GZ_MODEL: "baby_k"
+  PX4_GZ_MODEL_POSE: "0.0 0.0 0.35 0 0 0"
+  GZ_HEADLESS: "1"
+  # Gazebo Configuration  
+  GZ_SIM_RESOURCE_PATH: "/root/PX4_neabotics/Tools/simulation/gz/models/"
+  GZ_SIM_PLUGIN_PATH: "/root/ptz_ws/install/ptz_gz_sim/lib:/opt/ros/humble/lib:$GZ_SIM_PLUGIN_PATH"
+  # RTAB-Map fix for octomap library
+  LD_PRELOAD: "/usr/lib/x86_64-linux-gnu/liboctomap.so"
 pre_window: 
 windows:
 - window_name: px4
@@ -11,19 +21,20 @@ windows:
         - sleep 5       
         - cd ~/PX4_neabotics
         # NOTE: For standard PX4 firmware, use 'make px4_sitl gz_x500_depth' instead of gz_baby_k
-        - PX4_SYS_AUTOSTART=4010 PX4_GZ_MODEL=baby_k PX4_GZ_MODEL_POSE="0.0 0.0 0.35 0 0 0" GZ_HEADLESS=1 ./build/px4_sitl_default/bin/px4
+        - ./build/px4_sitl_default/bin/px4
     - shell_command:
         - sleep 5
         - cd ~/ros2_ws && source install/setup.bash
-        - LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liboctomap.so ros2 run rviz2 rviz2 -d ~/ros2_ws/src/pkg/babyk_drone_manager/rviz/leo.rviz --ros-args -r use_sim_time:=true
+        - ros2 run rviz2 rviz2 -d ~/ros2_ws/src/pkg/babyk_drone_manager/rviz/leo.rviz --ros-args -r use_sim_time:=true
     - shell_command:
-        - export GZ_SIM_RESOURCE_PATH=~/PX4_neabotics/Tools/simulation/gz/models/
+        - echo "GZ_SIM_PLUGIN_PATH=$GZ_SIM_PLUGIN_PATH" && ls -la ~/ptz_ws/install/ptz_gz_sim/lib/libCameraZoomPlugin.so
         - cd /home/user/rover_ws && source install/setup.bash
         - ros2 launch rover_gazebo rover_garden.launch.py 
     - shell_command:
         - sleep 30
-        - cd ~/ptz_ws && source install/setup.bash
-        # - ros2 launch ptz_gz_sim launch_sim.launch 
+        - cd ~/ptz_ws && echo "Building ptz_gz_sim..." && colcon build --packages-select ptz_gz_sim --cmake-args -DCMAKE_BUILD_TYPE=Release && source install/setup.bash
+        - echo "GZ_SIM_PLUGIN_PATH=$GZ_SIM_PLUGIN_PATH" && ls -la ~/ptz_ws/install/ptz_gz_sim/lib/libCameraZoomPlugin.so
+        - ros2 launch ptz_gz_sim spawn_ptz_in_rover_world.launch.py 
     - shell_command:
         - sleep 25
         - cd ~/ros2_ws && source install/setup.bash
