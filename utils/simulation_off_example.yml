@@ -1,0 +1,27 @@
+session_name: path_planner_simulation
+socket_name: drone_pathplanner
+environment:
+  ROS_DOMAIN_ID: "0"
+pre_window: 
+windows:
+- window_name: px4
+  layout: tiled
+  panes:
+    - shell_command:            
+        - cd ~/PX4_neabotics
+        # NOTE: For standard PX4 firmware, use 'make px4_sitl gz_x500_depth' instead of gz_baby_k
+        - make px4_sitl gz_baby_k  HEADLESS:=1 # HEADLESS:=1 means withoutt GZ gui. For standard PX4: use 'make px4_sitl gz_x500_depth'
+    - shell_command:
+        - sleep 5
+        - cd ~/ros2_ws && source install/setup.bash
+        - LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liboctomap.so ros2 run rviz2 rviz2 -d ~/ros2_ws/src/pkg/babyk_drone_manager/rviz/leo.rviz --ros-args -r use_sim_time:=true
+    - shell_command:
+        - sleep 1          
+        - MicroXRCEAgent udp4 -p 8888
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 run px4_ros_com offboard_control
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash

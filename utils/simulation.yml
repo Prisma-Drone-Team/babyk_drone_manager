@@ -1,7 +1,7 @@
 session_name: path_planner_simulation
 socket_name: drone_pathplanner
 environment:
-  ROS_DOMAIN_ID: "17"
+  ROS_DOMAIN_ID: "0"
 pre_window: 
 windows:
 - window_name: px4
