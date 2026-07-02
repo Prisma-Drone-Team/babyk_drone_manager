@@ -695,6 +695,8 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*p
     }
     takeoff_pose.position.z = takeoff_altitude_;  // Only change altitude
 
+
+
     // Create SINGLE waypoint path for takeoff to avoid yaw calculation
     nav_msgs::msg::Path takeoff_path;
     takeoff_path.header.stamp = this->get_clock()->now();

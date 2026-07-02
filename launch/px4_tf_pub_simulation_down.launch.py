@@ -12,9 +12,9 @@ import yaml
 sys.path.append(str(pathlib.Path(__file__).parent.absolute()))
 
 def generate_launch_description():
-    relay_odometry = LaunchConfiguration('relay_odometry', default='true')
 
     return LaunchDescription([
+
         launch_ros.actions.Node(
             package='drone_odometry',
             executable='px4_tf_pub',
@@ -28,12 +28,10 @@ def generate_launch_description():
                     'odom_parent_is_not_odom': False, #Gazebo odometry should be in correct frame
                     'odom_child_is_not_base_link': False, #Gazebo uses base_link as child
                     'use_sim_time': True,
-                    'relay_odometry': relay_odometry,
                 }
             ],
             remappings=[
-                ('/odometry/filtered', '/model/baby_k_0/odometry'),  # Use Gazebo odometry directly in simulation
-                ('/fmu/in/vehicle_visual_odometry', '/dummy_visual_odometry') # Disable px4_tf_pub odometry injection so tactile_odometry can take over
+                ('/odometry/filtered', '/model/baby_k_downcam_0/odometry')  # Use Gazebo odometry directly in simulation
             ],
             arguments=['--log-level', 'info']
         )  

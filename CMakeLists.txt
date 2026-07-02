@@ -15,6 +15,8 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(octomap REQUIRED)
+find_package(octomap_msgs REQUIRED)
 
 # RTABMap and SLAM dependencies
 find_package(rtabmap_ros REQUIRED)
@@ -22,6 +24,8 @@ find_package(rtabmap_util REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(grid_map_core REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 # Add move manager node executable
 add_executable(move_manager_node 
@@ -45,7 +49,31 @@ ament_target_dependencies(autonomous_test_node
   rclcpp 
   std_msgs 
   geometry_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  octomap
+  octomap_msgs
+  grid_map_core
 )
+target_include_directories(autonomous_test_node PUBLIC ${EIGEN3_INCLUDE_DIRS})
+target_link_libraries(autonomous_test_node Eigen3::Eigen)
+
+add_executable(exploration_node src/exploration_node.cpp)
+
+ament_target_dependencies(exploration_node
+  rclcpp
+  std_msgs
+  geometry_msgs
+  nav_msgs
+  sensor_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  octomap_msgs
+)
+target_link_libraries(exploration_node ${OCTOMAP_LIBRARIES})
 
 target_include_directories(move_manager_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -57,12 +85,18 @@ target_include_directories(autonomous_test_node PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(exploration_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${OCTOMAP_INCLUDE_DIRS}
+)
+
 target_link_libraries(move_manager_node 
   ${geometry_msgs_LIBRARIES}
 )
 
 # Install targets
-install(TARGETS move_manager_node autonomous_test_node
+install(TARGETS move_manager_node autonomous_test_node exploration_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -24,8 +24,8 @@ def generate_launch_description():
         LaunchConfiguration('config_file')
     ])
     
-    # Create the autonomous test node
-    autonomous_test_node = Node(
+    # Create the test node
+    test_node = Node(
         package='babyk_drone_manager',
         executable='autonomous_test_node',
         name='autonomous_test_node',
@@ -40,5 +40,5 @@ def generate_launch_description():
     return LaunchDescription([
         simulation_arg,
         config_file_arg,
-        autonomous_test_node
+        test_node
     ])

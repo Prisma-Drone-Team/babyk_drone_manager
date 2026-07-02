@@ -9,6 +9,8 @@ AutonomousTestNode::AutonomousTestNode()
       system_initialized_(false),
       consecutive_failures_(0),
       last_command_sent_(""),
+      has_odometry_(false),
+      exploration_goal_counter_(0),
       gen_(rd_()),
       command_dist_(0, 99)
 {
@@ -35,6 +37,23 @@ AutonomousTestNode::AutonomousTestNode()
     status_subscriber_ = this->create_subscription<std_msgs::msg::String>(
         "/trajectory_interpolator/status", 10,
         std::bind(&AutonomousTestNode::status_callback, this, std::placeholders::_1));
+        
+    // Set up SensorData QoS for odometry and octomap
+    rclcpp::QoS sensor_qos(rclcpp::KeepLast(10));
+    sensor_qos.best_effort();
+    
+    octomap_subscriber_ = this->create_subscription<octomap_msgs::msg::Octomap>(
+        "/octomap_binary", sensor_qos,
+        std::bind(&AutonomousTestNode::octomap_callback, this, std::placeholders::_1));
+        
+    odometry_subscriber_ = this->create_subscription<nav_msgs::msg::Odometry>(
+        "/px4/odometry/out", sensor_qos,
+        std::bind(&AutonomousTestNode::odometry_callback, this, std::placeholders::_1));
+        
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     
     // Create timer for sending commands
     command_timer_ = this->create_wall_timer(
@@ -75,6 +94,192 @@ void AutonomousTestNode::status_callback(const std_msgs::msg::String::SharedPtr 
     }
     
     RCLCPP_DEBUG(this->get_logger(), "Status: %s", current_status_.c_str());
+}
+
+void AutonomousTestNode::octomap_callback(const octomap_msgs::msg::Octomap::SharedPtr msg)
+{
+    octomap::AbstractOcTree* tree = octomap_msgs::binaryMsgToMap(*msg);
+    if (tree) {
+        octree_.reset(dynamic_cast<octomap::OcTree*>(tree));
+    }
+}
+
+void AutonomousTestNode::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
+{
+    current_pos_(0) = msg->pose.pose.position.x;
+    current_pos_(1) = msg->pose.pose.position.y;
+    current_pos_(2) = msg->pose.pose.position.z;
+    has_odometry_ = true;
+}
+
+std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
+{
+    if (!octree_ || !has_odometry_) {
+        return std::nullopt;
+    }
+
+    // Convert current_pos_ (which is in 'odom' frame) to 'drone/map' frame (global) using TF
+    geometry_msgs::msg::PoseStamped odom_pose;
+    odom_pose.header.frame_id = "odom";
+    odom_pose.header.stamp = this->now();
+    odom_pose.pose.position.x = current_pos_(0);
+    odom_pose.pose.position.y = current_pos_(1);
+    odom_pose.pose.position.z = current_pos_(2);
+    odom_pose.pose.orientation.w = 1.0;
+
+    geometry_msgs::msg::PoseStamped global_pose;
+    try {
+        global_pose = tf_buffer_->transform(odom_pose, "drone/map", tf2::durationFromSec(0.1));
+    } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "TF error: %s", ex.what());
+        return std::nullopt;
+    }
+
+    Eigen::Vector3d current_global(
+        global_pose.pose.position.x,
+        global_pose.pose.position.y,
+        global_pose.pose.position.z
+    );
+
+    double drone_x = current_global(0);
+    double drone_y = current_global(1);
+    
+    // Calculate drone's forward direction in the drone/map frame using quaternion yaw
+    double qx = global_pose.pose.orientation.x;
+    double qy = global_pose.pose.orientation.y;
+    double qz = global_pose.pose.orientation.z;
+    double qw = global_pose.pose.orientation.w;
+    double siny_cosp = 2.0 * (qw * qz + qx * qy);
+    double cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz);
+    double yaw = std::atan2(siny_cosp, cosy_cosp);
+    
+    double forward_x = std::cos(yaw);
+    double forward_y = std::sin(yaw);
+
+    double max_dist_forward = -1.0;
+    bool found = false;
+    double tunnel_width = 5.0; 
+    
+    // Pass 1: Find the absolute furthest reach (max_dist_forward) along the drone's heading
+    for (octomap::OcTree::leaf_iterator it = octree_->begin_leafs(), end = octree_->end_leafs(); it != end; ++it) {
+        if (!octree_->isNodeOccupied(*it)) {
+            double x = it.getX();
+            double y = it.getY();
+            
+            double dx = x - drone_x;
+            double dy = y - drone_y;
+            
+            // Project the distance along the forward vector (dot product)
+            double forward_dist = dx * forward_x + dy * forward_y;
+            
+            // Calculate lateral distance to keep it inside the tunnel
+            double lateral_dist = std::abs(dx * (-forward_y) + dy * forward_x);
+            
+            // Only look forward (forward_dist > 0) and within lateral tunnel
+            if (forward_dist > 0 && forward_dist <= 40.0 && lateral_dist <= tunnel_width) {
+                if (!found || forward_dist > max_dist_forward) {
+                    max_dist_forward = forward_dist;
+                    found = true;
+                }
+            }
+        }
+    }
+
+    if (found && max_dist_forward > 1.0) { // Require at least 1m of forward free space
+        double min_lateral = 10000.0;
+        double max_lateral = -10000.0;
+        double sum_z = 0.0;
+        int count = 0;
+        
+        // Pass 2: Bounding box midpoint ONLY of the nodes at the very edge of the frontier
+        // This keeps the drone perfectly centered even if the visual map is asymmetric!
+        for (octomap::OcTree::leaf_iterator it = octree_->begin_leafs(), end = octree_->end_leafs(); it != end; ++it) {
+            if (!octree_->isNodeOccupied(*it)) {
+                double x = it.getX();
+                double y = it.getY();
+                double z = it.getZ();
+                
+                double dx = x - drone_x;
+                double dy = y - drone_y;
+                double forward_dist = dx * forward_x + dy * forward_y;
+                // Use signed lateral distance to find left/right bounds
+                double lateral_pos = dx * (-forward_y) + dy * forward_x;
+                
+                // Only consider nodes in the front "slice" of the frontier
+                if (forward_dist >= max_dist_forward - 3.0 && forward_dist <= max_dist_forward && std::abs(lateral_pos) <= tunnel_width) {
+                    if (lateral_pos < min_lateral) min_lateral = lateral_pos;
+                    if (lateral_pos > max_lateral) max_lateral = lateral_pos;
+                    sum_z += z;
+                    count++;
+                }
+            }
+        }
+            
+        if (count > 0) {
+            double avg_lateral = (min_lateral + max_lateral) / 2.0;
+            double avg_z = sum_z / count;
+            
+            // Reconstruct X and Y from forward and lateral components
+            // We want the goal to be at max_dist_forward - 1.0 (retreat 1m)
+            double target_forward = max_dist_forward - 1.0;
+            
+            double goal_x = drone_x + target_forward * forward_x + avg_lateral * (-forward_y);
+            double goal_y = drone_y + target_forward * forward_y + avg_lateral * forward_x;
+            
+            // Constrain Z to reasonable flight altitudes
+            if (avg_z < 0.5) avg_z = 0.5;
+            if (avg_z > 2.5) avg_z = 2.5;
+
+            return Eigen::Vector3d(goal_x, goal_y, avg_z);
+        }
+    }
+
+    return std::nullopt;
+}
+
+void AutonomousTestNode::send_explore_flyto()
+{
+    auto goal_opt = find_frontier_goal();
+    
+    if (!goal_opt) {
+        // Fallback: wait for the octomap to generate free space
+        RCLCPP_WARN(this->get_logger(), "No frontier found in Octomap. Waiting for free space to be detected...");
+        return;
+    }
+    
+    Eigen::Vector3d goal = *goal_opt;
+    exploration_goal_counter_++;
+    std::string frame_name = "exploration_goal_" + std::to_string(exploration_goal_counter_);
+    
+    // Publish a dynamic TF frame for the goal
+    geometry_msgs::msg::TransformStamped t;
+    t.header.stamp = this->get_clock()->now();
+    t.header.frame_id = "drone/map"; // Octomap is usually aligned with this
+    t.child_frame_id = frame_name;
+    
+    t.transform.translation.x = goal(0);
+    t.transform.translation.y = goal(1);
+    t.transform.translation.z = goal(2);
+    
+    // Transform current odometry (odom frame) to global drone/map frame
+    Eigen::Vector3d current_global(current_pos_(1), -current_pos_(0), current_pos_(2));
+    
+    // Dynamically calculate the yaw so the drone faces the direction of travel!
+    // Since we now support curves, it will smoothly rotate towards the calculated centroid.
+    double yaw = std::atan2(goal(1) - current_global(1), goal(0) - current_global(0));
+    t.transform.rotation.x = 0.0;
+    t.transform.rotation.y = 0.0;
+    t.transform.rotation.z = std::sin(yaw / 2.0);
+    t.transform.rotation.w = std::cos(yaw / 2.0);
+    
+    tf_broadcaster_->sendTransform(t);
+    
+    // Send the flyto command
+    std::string command = "flyto(" + frame_name + ")";
+    send_command(command);
+    
+    RCLCPP_INFO(this->get_logger(), "🚀 EXPLORING: Published frontier TF %s at [%.2f, %.2f, %.2f]", 
+                frame_name.c_str(), goal(0), goal(1), goal(2));
 }
 
 void AutonomousTestNode::command_timer_callback()
@@ -146,23 +351,18 @@ void AutonomousTestNode::command_timer_callback()
             RCLCPP_INFO(this->get_logger(), "MANDATORY takeoff after land command");
         }
         else {
-            // Random choice between flyto and land
+            // Random choice between explore and land
             double rand_val = static_cast<double>(command_dist_(gen_)) / 100.0;
             
-            // Never allow land if last command was already land (double safety check)
-            if (last_command_sent_ == "land") {
-                RCLCPP_WARN(this->get_logger(), "Preventing land repetition - forcing flyto");
-                send_random_flyto();
-            }
-            // Random choice based on probability
-            else if (rand_val >= land_probability_) {
-                send_random_flyto();
-            }
-            else {
+            if (rand_val < land_probability_) {
                 // Send land command
                 send_land();
                 last_command_was_land_ = true;
                 RCLCPP_INFO(this->get_logger(), "Land command sent - next command will be takeoff");
+            } else {
+                // Use the new exploration function
+                send_explore_flyto();
+                last_command_was_land_ = false;
             }
         }
         
