@@ -6,5 +6,5 @@ autonomous_test_node:
     max_wait_time: 60           # Max time to wait if system is not idle (1 minute)
     
     # Command probabilities
-    land_probability: 0.03      # 3% chance of sending land command to disable random landing during exploration testing
+    land_probability: 0.0      # 3% chance of sending land command to disable random landing during exploration testing
     max_consecutive_failures: 3 # Emergency land after this many consecutive failures

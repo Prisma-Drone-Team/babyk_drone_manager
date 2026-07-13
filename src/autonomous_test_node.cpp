@@ -20,12 +20,14 @@ AutonomousTestNode::AutonomousTestNode()
     this->declare_parameter("max_wait_time", 60);          // 1 minute max wait
     this->declare_parameter("land_probability", 0.20);     // 20% chance of landing
     this->declare_parameter("max_consecutive_failures", 3); // Max failures before emergency land
+    this->declare_parameter("max_goal_distance", 5.0);      // Max forward distance for exploration
     
     command_interval_min_ = this->get_parameter("command_interval_min").as_int();
     command_interval_max_ = this->get_parameter("command_interval_max").as_int();
     max_wait_time_ = this->get_parameter("max_wait_time").as_int();
     land_probability_ = this->get_parameter("land_probability").as_double();
     max_consecutive_failures_ = this->get_parameter("max_consecutive_failures").as_int();
+    max_goal_distance_ = this->get_parameter("max_goal_distance").as_double();
     
     // Available goals (goal1 to goal7)
     available_goals_ = {"goal1", "goal2", "goal3", "goal4", "goal5", "goal6", "goal7"};
@@ -65,6 +67,7 @@ AutonomousTestNode::AutonomousTestNode()
                 command_interval_min_, command_interval_max_);
     RCLCPP_INFO(this->get_logger(), "Land probability: %.1f%%", land_probability_ * 100);
     RCLCPP_INFO(this->get_logger(), "Max consecutive failures before emergency land: %d", max_consecutive_failures_);
+    RCLCPP_INFO(this->get_logger(), "Max goal distance: %.1fm", max_goal_distance_);
 }
 
 void AutonomousTestNode::status_callback(const std_msgs::msg::String::SharedPtr msg)
@@ -102,6 +105,15 @@ void AutonomousTestNode::octomap_callback(const octomap_msgs::msg::Octomap::Shar
     if (tree) {
         octree_.reset(dynamic_cast<octomap::OcTree*>(tree));
     }
+    
+    if (octree_) {
+        static bool first_time = true;
+        if (first_time || octomap_frame_id_ != msg->header.frame_id) {
+            octomap_frame_id_ = msg->header.frame_id;
+            RCLCPP_WARN(this->get_logger(), "🔥 OCTOMAP FRAME ID IS: '%s' 🔥", octomap_frame_id_.c_str());
+            first_time = false;
+        }
+    }
 }
 
 void AutonomousTestNode::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
@@ -114,47 +126,72 @@ void AutonomousTestNode::odometry_callback(const nav_msgs::msg::Odometry::Shared
 
 std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
 {
-    if (!octree_ || !has_odometry_) {
+    if (!octree_) {
+        RCLCPP_WARN(this->get_logger(), "Octree is null!");
+        return std::nullopt;
+    }
+    if (octree_->size() == 0) {
+        RCLCPP_WARN(this->get_logger(), "Octree is empty (size 0)!");
+        return std::nullopt;
+    }
+    if (!has_odometry_) {
+        RCLCPP_WARN(this->get_logger(), "No odometry received yet!");
         return std::nullopt;
     }
 
-    // Convert current_pos_ (which is in 'odom' frame) to 'drone/map' frame (global) using TF
-    geometry_msgs::msg::PoseStamped odom_pose;
-    odom_pose.header.frame_id = "odom";
-    odom_pose.header.stamp = this->now();
-    odom_pose.pose.position.x = current_pos_(0);
-    odom_pose.pose.position.y = current_pos_(1);
-    odom_pose.pose.position.z = current_pos_(2);
-    odom_pose.pose.orientation.w = 1.0;
-
-    geometry_msgs::msg::PoseStamped global_pose;
+    // 1. Get true physical drone pose in 'map' frame
+    geometry_msgs::msg::TransformStamped map_to_base;
     try {
-        global_pose = tf_buffer_->transform(odom_pose, "drone/map", tf2::durationFromSec(0.1));
+        map_to_base = tf_buffer_->lookupTransform("map", "base_link", rclcpp::Time(0));
+    } catch (const tf2::TransformException & ex) {
+        RCLCPP_WARN(this->get_logger(), "Could not get map->base_link for frontier search: %s", ex.what());
+        return std::nullopt;
+    }
+    
+    // 2. Transform the drone pose to the octomap frame
+    std::string target_frame = octomap_frame_id_.empty() ? "map" : octomap_frame_id_;
+    
+    geometry_msgs::msg::PoseStamped base_in_map;
+    base_in_map.header.frame_id = "map";
+    base_in_map.header.stamp = rclcpp::Time(0);
+    base_in_map.pose.position.x = map_to_base.transform.translation.x;
+    base_in_map.pose.position.y = map_to_base.transform.translation.y;
+    base_in_map.pose.position.z = map_to_base.transform.translation.z;
+    base_in_map.pose.orientation = map_to_base.transform.rotation;
+    
+    geometry_msgs::msg::PoseStamped base_in_octomap;
+    try {
+        base_in_octomap = tf_buffer_->transform(base_in_map, target_frame, tf2::durationFromSec(0.1));
     } catch (tf2::TransformException &ex) {
-        RCLCPP_WARN(this->get_logger(), "TF error: %s", ex.what());
+        RCLCPP_WARN(this->get_logger(), "TF error map->%s: %s", target_frame.c_str(), ex.what());
         return std::nullopt;
     }
 
-    Eigen::Vector3d current_global(
-        global_pose.pose.position.x,
-        global_pose.pose.position.y,
-        global_pose.pose.position.z
-    );
+    // 3. Extract coordinates in octomap frame
+    double drone_x = base_in_octomap.pose.position.x;
+    double drone_y = base_in_octomap.pose.position.y;
 
-    double drone_x = current_global(0);
-    double drone_y = current_global(1);
-    
-    // Calculate drone's forward direction in the drone/map frame using quaternion yaw
-    double qx = global_pose.pose.orientation.x;
-    double qy = global_pose.pose.orientation.y;
-    double qz = global_pose.pose.orientation.z;
-    double qw = global_pose.pose.orientation.w;
+    // Calculate drone's forward direction in octomap frame using quaternion yaw
+    double qx = base_in_octomap.pose.orientation.x;
+    double qy = base_in_octomap.pose.orientation.y;
+    double qz = base_in_octomap.pose.orientation.z;
+    double qw = base_in_octomap.pose.orientation.w;
     double siny_cosp = 2.0 * (qw * qz + qx * qy);
     double cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz);
     double yaw = std::atan2(siny_cosp, cosy_cosp);
     
     double forward_x = std::cos(yaw);
     double forward_y = std::sin(yaw);
+
+    int total_nodes = 0;
+    int free_nodes = 0;
+    for (octomap::OcTree::leaf_iterator it = octree_->begin_leafs(), end = octree_->end_leafs(); it != end; ++it) {
+        total_nodes++;
+        if (!octree_->isNodeOccupied(*it)) {
+            free_nodes++;
+        }
+    }
+    RCLCPP_INFO(this->get_logger(), "Octomap stats: %d total nodes, %d FREE nodes.", total_nodes, free_nodes);
 
     double max_dist_forward = -1.0;
     bool found = false;
@@ -176,7 +213,7 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
             double lateral_dist = std::abs(dx * (-forward_y) + dy * forward_x);
             
             // Only look forward (forward_dist > 0) and within lateral tunnel
-            if (forward_dist > 0 && forward_dist <= 40.0 && lateral_dist <= tunnel_width) {
+            if (forward_dist > 0 && forward_dist <= max_goal_distance_ && lateral_dist <= tunnel_width) {
                 if (!found || forward_dist > max_dist_forward) {
                     max_dist_forward = forward_dist;
                     found = true;
@@ -217,6 +254,10 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
             
         if (count > 0) {
             double avg_lateral = (min_lateral + max_lateral) / 2.0;
+            
+            // Dampen the lateral shift to avoid aggressive zig-zagging towards the edges of the FOV
+            avg_lateral *= 0.2;
+            
             double avg_z = sum_z / count;
             
             // Reconstruct X and Y from forward and lateral components
@@ -228,9 +269,36 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
             
             // Constrain Z to reasonable flight altitudes
             if (avg_z < 0.5) avg_z = 0.5;
-            if (avg_z > 2.5) avg_z = 2.5;
-
-            return Eigen::Vector3d(goal_x, goal_y, avg_z);
+            if (avg_z > 2.0) avg_z = 2.0;
+            
+            // Transform the goal back from octomap frame to 'map'
+            geometry_msgs::msg::PoseStamped goal_in_octomap;
+            goal_in_octomap.header.frame_id = target_frame;
+            goal_in_octomap.header.stamp = rclcpp::Time(0);
+            goal_in_octomap.pose.position.x = goal_x;
+            goal_in_octomap.pose.position.y = goal_y;
+            goal_in_octomap.pose.position.z = avg_z;
+            goal_in_octomap.pose.orientation.w = 1.0;
+            
+            geometry_msgs::msg::PoseStamped goal_in_map;
+            try {
+                goal_in_map = tf_buffer_->transform(goal_in_octomap, "map", tf2::durationFromSec(0.1));
+                
+                RCLCPP_INFO(this->get_logger(), "🎯 FOUND FRONTIER! Octomap coords: [%.2f, %.2f, %.2f] -> Map coords: [%.2f, %.2f, %.2f]",
+                            goal_x, goal_y, avg_z,
+                            goal_in_map.pose.position.x, goal_in_map.pose.position.y, goal_in_map.pose.position.z);
+                            
+                return Eigen::Vector3d(goal_in_map.pose.position.x, goal_in_map.pose.position.y, goal_in_map.pose.position.z);
+            } catch (tf2::TransformException &ex) {
+                RCLCPP_WARN(this->get_logger(), "TF error %s->map: %s", target_frame.c_str(), ex.what());
+                return std::nullopt;
+            }
+        }
+    } else {
+        if (!found) {
+            RCLCPP_WARN(this->get_logger(), "Octomap has nodes, but NO free space was found in the forward direction (yaw: %.2f)!", yaw);
+        } else {
+            RCLCPP_WARN(this->get_logger(), "Octomap found free space, but max distance is %.2fm (must be > 1.0m)!", max_dist_forward);
         }
     }
 
@@ -242,7 +310,6 @@ void AutonomousTestNode::send_explore_flyto()
     auto goal_opt = find_frontier_goal();
     
     if (!goal_opt) {
-        // Fallback: wait for the octomap to generate free space
         RCLCPP_WARN(this->get_logger(), "No frontier found in Octomap. Waiting for free space to be detected...");
         return;
     }
@@ -251,26 +318,37 @@ void AutonomousTestNode::send_explore_flyto()
     exploration_goal_counter_++;
     std::string frame_name = "exploration_goal_" + std::to_string(exploration_goal_counter_);
     
+    // The goal returned by find_frontier_goal() is already in 'map' frame!
+    
+    geometry_msgs::msg::TransformStamped map_to_base;
+    try {
+        map_to_base = tf_buffer_->lookupTransform("map", "base_link", rclcpp::Time(0));
+    } catch (const tf2::TransformException & ex) {
+        RCLCPP_WARN(this->get_logger(), "Could not get map->base_link: %s", ex.what());
+        return;
+    }
+    
+    double yaw_map = std::atan2(goal(1) - map_to_base.transform.translation.y, goal(0) - map_to_base.transform.translation.x);
+    
+    geometry_msgs::msg::PoseStamped goal_map_pose;
+    goal_map_pose.header.frame_id = "map";
+    goal_map_pose.header.stamp = rclcpp::Time(0);
+    goal_map_pose.pose.position.x = goal(0);
+    goal_map_pose.pose.position.y = goal(1);
+    goal_map_pose.pose.position.z = goal(2);
+    goal_map_pose.pose.orientation.z = std::sin(yaw_map / 2.0);
+    goal_map_pose.pose.orientation.w = std::cos(yaw_map / 2.0);
+    
     // Publish a dynamic TF frame for the goal
     geometry_msgs::msg::TransformStamped t;
     t.header.stamp = this->get_clock()->now();
-    t.header.frame_id = "drone/map"; // Octomap is usually aligned with this
+    t.header.frame_id = "map"; 
     t.child_frame_id = frame_name;
     
-    t.transform.translation.x = goal(0);
-    t.transform.translation.y = goal(1);
-    t.transform.translation.z = goal(2);
-    
-    // Transform current odometry (odom frame) to global drone/map frame
-    Eigen::Vector3d current_global(current_pos_(1), -current_pos_(0), current_pos_(2));
-    
-    // Dynamically calculate the yaw so the drone faces the direction of travel!
-    // Since we now support curves, it will smoothly rotate towards the calculated centroid.
-    double yaw = std::atan2(goal(1) - current_global(1), goal(0) - current_global(0));
-    t.transform.rotation.x = 0.0;
-    t.transform.rotation.y = 0.0;
-    t.transform.rotation.z = std::sin(yaw / 2.0);
-    t.transform.rotation.w = std::cos(yaw / 2.0);
+    t.transform.translation.x = goal_map_pose.pose.position.x;
+    t.transform.translation.y = goal_map_pose.pose.position.y;
+    t.transform.translation.z = goal_map_pose.pose.position.z;
+    t.transform.rotation = goal_map_pose.pose.orientation;
     
     tf_broadcaster_->sendTransform(t);
     
@@ -321,9 +399,9 @@ void AutonomousTestNode::command_timer_callback()
     bool should_send_command = false;
     
     if (is_system_idle()) {
-        // If system just became idle, send command immediately
+        // If system just became idle, wait 2 seconds to ensure it's not a transient state (like STOP before TELEOP)
         // Otherwise wait for the interval
-        if (time_since_last_command >= 10.0) {  // Minimum 10 seconds between commands
+        if (time_since_last_command >= 10.0 && time_since_status_change >= 2.0) {  // Minimum 10 seconds between commands, and wait 2s
             should_send_command = true;
         }
     }

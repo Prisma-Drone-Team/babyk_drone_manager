@@ -17,6 +17,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(octomap REQUIRED)
 find_package(octomap_msgs REQUIRED)
+find_package(px4_msgs REQUIRED)
 
 # RTABMap and SLAM dependencies
 find_package(rtabmap_ros REQUIRED)
@@ -41,6 +42,16 @@ ament_target_dependencies(move_manager_node
   tf2 
   tf2_ros 
   tf2_geometry_msgs
+)
+
+add_executable(vio_aligner_node src/vio_aligner.cpp)
+ament_target_dependencies(vio_aligner_node
+  rclcpp
+  nav_msgs
+  geometry_msgs
+  tf2
+  tf2_ros
+  px4_msgs
 )
 
 add_executable(autonomous_test_node src/autonomous_test_node.cpp)
@@ -96,7 +107,12 @@ target_link_libraries(move_manager_node
 )
 
 # Install targets
-install(TARGETS move_manager_node autonomous_test_node exploration_node
+install(TARGETS move_manager_node autonomous_test_node exploration_node vio_aligner_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  scripts/vio_aligner.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

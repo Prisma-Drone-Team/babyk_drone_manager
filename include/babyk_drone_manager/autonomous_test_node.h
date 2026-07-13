@@ -89,6 +89,7 @@ private:
     
     // Exploration state
     std::shared_ptr<octomap::OcTree> octree_;
+    std::string octomap_frame_id_ = "";
     Eigen::Vector3d current_pos_;
     bool has_odometry_;
     int exploration_goal_counter_;
@@ -104,6 +105,7 @@ private:
     int max_wait_time_;
     double land_probability_;
     int max_consecutive_failures_;    // Max failures before emergency land
+    double max_goal_distance_;        // Max forward distance for exploration goals
 };
 
 #endif // AUTONOMOUS_TEST_NODE_H

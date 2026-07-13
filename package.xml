@@ -17,6 +17,7 @@
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_geometry_msgs</depend>
+  <depend>px4_msgs</depend>
 
   <!-- RTABMap and SLAM dependencies -->
   <depend>rtabmap_ros</depend>

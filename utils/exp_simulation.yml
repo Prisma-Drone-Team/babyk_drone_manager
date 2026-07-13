@@ -1,7 +1,7 @@
 session_name: vins_simulation
 socket_name: drone_pathplanner
 environment:
-  ROS_DOMAIN_ID: "17"
+  ROS_DOMAIN_ID: "56"
 pre_window:
 windows:
 - window_name: px4
@@ -11,10 +11,11 @@ windows:
         - cd ~/PX4_neabotics
         - make px4_sitl gz_baby_k
     - shell_command:
-        - sleep 6
+        - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch aruco_detector_ocv_ros2 detector_launch.py use_sim_time:=true
+        - ros2 topic echo /drone/external_wrench
     - shell_command:
+        - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
     - shell_command:
         - sleep 1
@@ -30,17 +31,11 @@ windows:
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 drone/map global --ros-args -p use_sim_time:=true
-    - shell_command:
-        - sleep 2
-        - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 -0.7071068 0.7071068 global odom --ros-args -p use_sim_time:=true
+        - ros2 launch move_manager move_manager.launch.py config_file:=config/move_manager_simulation.yaml --ros-args -p use_sim_time:=true
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 1 imu base_link --ros-args -p use_sim_time:=true
-    - shell_command:
-        - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 run tf2_ros static_transform_publisher 0.21233 -0.03000 -0.01122 0.5 -0.5 0.5 -0.5 base_link cam0 --ros-args -p use_sim_time:=true
     - shell_command:
@@ -65,35 +60,27 @@ windows:
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 run joy joy_node --ros-args -r use_sim_time:=true
 
-- window_name: mapping
-  layout: tiled
-  panes:
-    - shell_command:
-        - sleep 5
-        - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch stereo_monospheres_mapper mapper.launch.py use_sim_time:=true virtual_range:=19.0
-
 - window_name: path_planning
   layout: tiled
   panes:
     - shell_command:
-        - sleep 6
+        - sleep 20
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 run traj_interp trajectory_interpolator --ros-args --params-file /root/ros2_ws/src/pkg/traj_interp/config/trajectory_interpolator_simulation.yaml -r use_sim_time:=true
     - shell_command:
-        - sleep 10
+        - sleep 21
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch babyk_drone_manager move_manager.launch.py config_file:=/root/ros2_ws/src/pkg/babyk_drone_manager/config/move_manager_simulation.yaml simulation:=false
     - shell_command:
-        - sleep 12
+        - sleep 22
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch path_planner path_planner.launch.py config_file:=/root/ros2_ws/src/pkg/path_planner/config/path_planner_simulation.yaml
     - shell_command:
-        - sleep 12
-        - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch teleop_node enhanced_teleop.launch.py simulation:=true
-    - shell_command:
         - sleep 18
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch stereo_monospheres_mapper mapper.launch.py use_sim_time:=true virtual_range:=8.0
+    - shell_command:
+        - sleep 25
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=true
 
@@ -101,22 +88,39 @@ windows:
   layout: tiled
   panes:
     - shell_command:
-        - sleep 15
+        - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 topic echo /move_manager/status
     - shell_command:
-        - sleep 15
+        - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 topic echo /path_planner/status
     - shell_command:
-        - sleep 15
+        - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 topic echo /seed_pdt_drone/state
+
     - shell_command:
-        - sleep 15
+        - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 topic echo /trajectory_interpolator/status
     - shell_command:
-        - sleep 10
+        - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
         - python3 src/pkg/babyk_drone_manager/scripts/debug_takeoff.py --ros-args -p use_sim_time:=true
+
+- window_name: recovery
+  layout: tiled
+  panes:
+    - shell_command:
+        - sleep 27
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /fsm/current_state
+    - shell_command:
+        - sleep 27
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /vio_health_status
+    - shell_command:
+        - sleep 26
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch vio_recovery launch_recovery.launch.py use_sim_time:=true

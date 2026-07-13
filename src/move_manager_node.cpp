@@ -622,7 +622,7 @@ void MoveManagerNode::handle_flyto_command(const std::vector<std::string>& parts
 
 void MoveManagerNode::handle_go_command(const std::vector<std::string>& parts) {
     if (parts.size() < 2) {
-        RCLCPP_ERROR(get_logger(), "go command requires 3 coordinates: go(x,y,z)");
+        RCLCPP_ERROR(get_logger(), "go command requires 3 or 4 coordinates: go(x,y,z) or go(x,y,z,yaw)");
         std::lock_guard<std::mutex> lock(state_mutex_);
         overall_status_ = "ERROR_INVALID_GO";
         return;
@@ -638,8 +638,8 @@ void MoveManagerNode::handle_go_command(const std::vector<std::string>& parts) {
     }
     coords.push_back(s.substr(start));
 
-    if (coords.size() != 3) {
-        RCLCPP_ERROR(get_logger(), "go command requires 3 coordinates: go(x,y,z)");
+    if (coords.size() != 3 && coords.size() != 4) {
+        RCLCPP_ERROR(get_logger(), "go command requires 3 or 4 coordinates: go(x,y,z) or go(x,y,z,yaw)");
         std::lock_guard<std::mutex> lock(state_mutex_);
         overall_status_ = "ERROR_INVALID_GO";
         return;
@@ -650,7 +650,16 @@ void MoveManagerNode::handle_go_command(const std::vector<std::string>& parts) {
         target_pose.position.x = std::stod(coords[0]);
         target_pose.position.y = std::stod(coords[1]);
         target_pose.position.z = std::stod(coords[2]);
-        target_pose.orientation.w = 1.0; // Default orientation
+        
+        if (coords.size() == 4) {
+            double yaw = std::stod(coords[3]);
+            target_pose.orientation.w = std::cos(yaw / 2.0);
+            target_pose.orientation.x = 0.0;
+            target_pose.orientation.y = 0.0;
+            target_pose.orientation.z = std::sin(yaw / 2.0);
+        } else {
+            target_pose.orientation.w = 1.0; // Default orientation (yaw = 0)
+        }
         
         // Create direct path and send to traj_interp
         nav_msgs::msg::Path direct_path = create_direct_path(target_pose);
@@ -984,6 +993,7 @@ void MoveManagerNode::static_tf_pub() {
 
 void MoveManagerNode::handle_teleop_command() {
     // Verifica se il joystick è disponibile
+    /*
     if (!joy_available_) {
         RCLCPP_ERROR(get_logger(), "❌ Cannot activate teleop mode - joystick not detected!");
         RCLCPP_ERROR(get_logger(), "Please ensure joystick is connected and joy_node is running");
@@ -1001,6 +1011,7 @@ void MoveManagerNode::handle_teleop_command() {
         overall_status_ = "ERROR_TELEOP_SAFETY_LOCKED";
         return;
     }
+    */
     
     if (!odometry_received_) {
         RCLCPP_ERROR(get_logger(), "Cannot activate teleop mode - no odometry received");

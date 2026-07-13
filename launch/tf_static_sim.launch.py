@@ -37,5 +37,8 @@ def generate_launch_description():
         
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['0', '1', ' 0.0',  '0', '0', '0.7071068', '0.7071068', 'map', 'drone/map']), 
+            arguments=['0', '1', '0', '0', '0', '0', '1', 'map', 'drone/map']), 
+            
+        Node(
+            package='babyk_drone_manager', executable='vio_aligner_node', output='screen'),
     ])
