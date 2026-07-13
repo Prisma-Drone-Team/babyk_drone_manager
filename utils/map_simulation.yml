@@ -1,4 +1,4 @@
-session_name: monospheres_simulation
+session_name: vio_mapping_simulation
 socket_name: drone_pathplanner
 environment:
   ROS_DOMAIN_ID: "56"
@@ -134,7 +134,7 @@ windows:
   layout: tiled
   panes:
     - shell_command:
-        # Avvio MonoSpheres Mapper (integrato con l'istanza OpenVINS simulata)
+        # Avvio vio_mapping Mapper (integrato con l'istanza OpenVINS simulata)
         - sleep 12
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run stereo_monospheres_mapper stereo_monospheres_mapper_node --ros-args -p use_sim_time:=true
+        - ros2 run vio_mapping vio_mapping_node --ros-args -p use_sim_time:=true

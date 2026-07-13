@@ -10,6 +10,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 def generate_launch_description():
 
     return LaunchDescription([
+        SetParameter(name='use_sim_time', value=True),
 
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',

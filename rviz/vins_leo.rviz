@@ -383,7 +383,7 @@ Visualization Manager:
     Color Mode: Flat
     Enabled: true
     Free Cell Color: 0; 255; 0
-    Name: Monospheres Octomap
+    Name: vio_mapping Octomap
     Topic:
       Depth: 5
       Durability Policy: Volatile

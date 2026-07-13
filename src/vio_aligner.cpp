@@ -107,9 +107,8 @@ private:
             tf2.transform.translation.y = 0.0;
             tf2.transform.translation.z = 0.0;
             tf2::Quaternion q2;
-            // The global->odom transform must ALWAYS be -90 degrees (-M_PI_2).
-            // This is required to align the VIO camera "Forward" (X) with the PX4 "North" (Y) in ENU.
-            q2.setRPY(0, 0, -M_PI_2);
+            // The global->odom transform must revert the yaw offset so that odom aligns with drone/map.
+            q2.setRPY(0, 0, -yaw_offset);
             tf2.transform.rotation.x = q2.x();
             tf2.transform.rotation.y = q2.y();
             tf2.transform.rotation.z = q2.z();
