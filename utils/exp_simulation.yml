@@ -9,11 +9,11 @@ windows:
   panes:
     - shell_command:
         - cd ~/PX4_neabotics
-        - make px4_sitl gz_baby_k
+        - make px4_sitl gz_baby_k  HEADLESS:=1 # For standard PX4: use 'make px4_sitl gz_x500_depth'
     - shell_command:
         - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 topic echo /drone/external_wrench
+        - ros2 topic echo /vio_recovery/pi_debug
     - shell_command:
         - sleep 35
         - cd ~/ros2_ws && source install/setup.bash

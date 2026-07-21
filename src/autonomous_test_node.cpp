@@ -21,6 +21,8 @@ AutonomousTestNode::AutonomousTestNode()
     this->declare_parameter("land_probability", 0.20);     // 20% chance of landing
     this->declare_parameter("max_consecutive_failures", 3); // Max failures before emergency land
     this->declare_parameter("max_goal_distance", 5.0);      // Max forward distance for exploration
+    this->declare_parameter("goal_distance_ratio", 0.5);    // Ratio of max distance to spawn goal
+    this->declare_parameter("min_forward_space", 1.5);      // Minimum forward space required to avoid landing
     
     command_interval_min_ = this->get_parameter("command_interval_min").as_int();
     command_interval_max_ = this->get_parameter("command_interval_max").as_int();
@@ -28,6 +30,8 @@ AutonomousTestNode::AutonomousTestNode()
     land_probability_ = this->get_parameter("land_probability").as_double();
     max_consecutive_failures_ = this->get_parameter("max_consecutive_failures").as_int();
     max_goal_distance_ = this->get_parameter("max_goal_distance").as_double();
+    goal_distance_ratio_ = this->get_parameter("goal_distance_ratio").as_double();
+    min_forward_space_ = this->get_parameter("min_forward_space").as_double();
     
     // Available goals (goal1 to goal7)
     available_goals_ = {"goal1", "goal2", "goal3", "goal4", "goal5", "goal6", "goal7"};
@@ -124,8 +128,9 @@ void AutonomousTestNode::odometry_callback(const nav_msgs::msg::Odometry::Shared
     has_odometry_ = true;
 }
 
-std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
+std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal(bool& should_return)
 {
+    should_return = false;
     if (!octree_) {
         RCLCPP_WARN(this->get_logger(), "Octree is null!");
         return std::nullopt;
@@ -222,7 +227,7 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
         }
     }
 
-    if (found && max_dist_forward > 1.0) { // Require at least 1m of forward free space
+    if (found && max_dist_forward >= min_forward_space_) { // Require at least min_forward_space_ of forward free space
         double min_lateral = 10000.0;
         double max_lateral = -10000.0;
         double sum_z = 0.0;
@@ -261,8 +266,8 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
             double avg_z = sum_z / count;
             
             // Reconstruct X and Y from forward and lateral components
-            // We want the goal to be at max_dist_forward - 1.0 (retreat 1m)
-            double target_forward = max_dist_forward - 1.0;
+            // We want the goal to be based on the parameterizable ratio
+            double target_forward = max_dist_forward * goal_distance_ratio_;
             
             double goal_x = drone_x + target_forward * forward_x + avg_lateral * (-forward_y);
             double goal_y = drone_y + target_forward * forward_y + avg_lateral * forward_x;
@@ -297,8 +302,14 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
     } else {
         if (!found) {
             RCLCPP_WARN(this->get_logger(), "Octomap has nodes, but NO free space was found in the forward direction (yaw: %.2f)!", yaw);
+            // If no free space is found at all, we might be blocked completely
+            should_return = true;
         } else {
-            RCLCPP_WARN(this->get_logger(), "Octomap found free space, but max distance is %.2fm (must be > 1.0m)!", max_dist_forward);
+            RCLCPP_WARN(this->get_logger(), "Octomap found free space, but max distance is %.2fm (must be > %.2fm)!", max_dist_forward, min_forward_space_);
+            if (max_dist_forward < min_forward_space_) {
+                RCLCPP_WARN(this->get_logger(), "Forward space is too small! Triggering return sequence.");
+                should_return = true;
+            }
         }
     }
 
@@ -307,7 +318,14 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal()
 
 void AutonomousTestNode::send_explore_flyto()
 {
-    auto goal_opt = find_frontier_goal();
+    bool should_return = false;
+    auto goal_opt = find_frontier_goal(should_return);
+    
+    if (should_return) {
+        RCLCPP_WARN(this->get_logger(), "Exploration logic determined space is insufficient. Returning to initial point (goal1).");
+        send_command("flyto(goal1)");
+        return;
+    }
     
     if (!goal_opt) {
         RCLCPP_WARN(this->get_logger(), "No frontier found in Octomap. Waiting for free space to be detected...");

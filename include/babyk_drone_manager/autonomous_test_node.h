@@ -67,7 +67,7 @@ private:
     bool is_system_idle();
     
     // Exploration logic
-    std::optional<Eigen::Vector3d> find_frontier_goal();
+    std::optional<Eigen::Vector3d> find_frontier_goal(bool& should_return);
     
     // ROS2 interfaces
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr command_publisher_;
@@ -106,6 +106,8 @@ private:
     double land_probability_;
     int max_consecutive_failures_;    // Max failures before emergency land
     double max_goal_distance_;        // Max forward distance for exploration goals
+    double goal_distance_ratio_;      // Ratio of max distance to spawn goal (0.5 = halfway)
+    double min_forward_space_;        // Minimum forward space required, otherwise land
 };
 
 #endif // AUTONOMOUS_TEST_NODE_H

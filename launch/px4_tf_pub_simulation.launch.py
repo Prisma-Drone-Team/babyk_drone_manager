@@ -33,7 +33,7 @@ def generate_launch_description():
             ],
             remappings=[
                 ('/odometry/filtered', '/model/baby_k_0/odometry'),  # Use Gazebo odometry directly in simulation
-                ('/fmu/in/vehicle_visual_odometry', '/dummy_visual_odometry') # Disable px4_tf_pub odometry injection so tactile_odometry can take over
+                ('/fmu/in/vehicle_visual_odometry', '/dummy_visual_odometry') # Disable px4_tf_pub odometry injection so flight_odometry_filter can take over
             ],
             arguments=['--log-level', 'info']
         )  

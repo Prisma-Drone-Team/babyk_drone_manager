@@ -31,91 +31,84 @@ public:
                 std::bind(&VioAlignerNode::vio_cb, this, std::placeholders::_1));
         } else {
             RCLCPP_INFO(this->get_logger(), "[HARDWARE] Bypassing GT alignment. Forcing 0.0 offset and publishing TF immediately.");
-            gt_yaw_ = 0.0;
-            vio_yaw_ = 0.0;
+            tf2::Quaternion q;
+            q.setRPY(0, 0, 0);
+            gt_q_ = q;
+            vio_q_ = q;
             check_and_publish();
         }
     }
 
 private:
-    double euler_yaw_from_quaternion(double x, double y, double z, double w)
-    {
-        tf2::Quaternion q(x, y, z, w);
-        tf2::Matrix3x3 m(q);
-        double roll, pitch, yaw;
-        m.getRPY(roll, pitch, yaw);
-        return yaw;
-    }
 
     void gt_cb(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
-        if (!gt_yaw_.has_value()) {
-            auto q = msg->pose.pose.orientation;
-            gt_yaw_ = euler_yaw_from_quaternion(q.x, q.y, q.z, q.w);
+        if (!gt_q_.has_value()) {
+            auto& o = msg->pose.pose.orientation;
+            gt_q_ = tf2::Quaternion(o.x, o.y, o.z, o.w);
             check_and_publish();
         }
     }
 
     void vio_cb(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
-        if (!vio_yaw_.has_value()) {
-            auto q = msg->pose.pose.orientation;
-            vio_yaw_ = euler_yaw_from_quaternion(q.x, q.y, q.z, q.w);
+        if (!vio_q_.has_value()) {
+            auto& o = msg->pose.pose.orientation;
+            vio_q_ = tf2::Quaternion(o.x, o.y, o.z, o.w);
             check_and_publish();
         }
     }
 
     void check_and_publish()
     {
-        if (gt_yaw_.has_value() && vio_yaw_.has_value() && !published_) {
+        if (gt_q_.has_value() && vio_q_.has_value() && !published_) {
             published_ = true;
 
-            // Gazebo ground truth from ros_gz_bridge is already in ENU (X=East, Y=North).
-            // Drone facing East has yaw=0.
-            double yaw_offset = gt_yaw_.value() - vio_yaw_.value();
+            // Rotazione che porta VIO frame in GT frame:
+            // q_offset = q_gt * q_vio^(-1)
+            tf2::Quaternion q_offset = gt_q_.value() * vio_q_.value().inverse();
+            q_offset.normalize();
 
-            RCLCPP_INFO(this->get_logger(), "Ground Truth Yaw (ENU): %.3f rad", gt_yaw_.value());
-            RCLCPP_INFO(this->get_logger(), "VIO Yaw: %.3f rad", vio_yaw_.value());
-            RCLCPP_INFO(this->get_logger(), "Calculated Offset: %.3f rad", yaw_offset);
+            double roll, pitch, yaw;
+            tf2::Matrix3x3(q_offset).getRPY(roll, pitch, yaw);
+            
             RCLCPP_INFO(this->get_logger(), "Publishing aligned static TF: drone/map -> global and global -> odom");
+            RCLCPP_INFO(this->get_logger(),
+                "Full offset — roll: %.3f rad, pitch: %.3f rad, yaw: %.3f rad",
+                roll, pitch, yaw);
 
             std::vector<geometry_msgs::msg::TransformStamped> transforms;
             rclcpp::Time now = this->get_clock()->now();
 
-            // Transform 1: drone/map -> global
+            // drone/map -> global: applica l'offset completo (yaw + pitch + roll)
             geometry_msgs::msg::TransformStamped tf1;
-            tf1.header.stamp = now;
+            tf1.header.stamp    = now;
             tf1.header.frame_id = "drone/map";
-            tf1.child_frame_id = "global";
+            tf1.child_frame_id  = "global";
             tf1.transform.translation.x = 0.0;
             tf1.transform.translation.y = 0.0;
             tf1.transform.translation.z = 0.0;
-            tf2::Quaternion q1;
-            q1.setRPY(0, 0, yaw_offset);
-            tf1.transform.rotation.x = q1.x();
-            tf1.transform.rotation.y = q1.y();
-            tf1.transform.rotation.z = q1.z();
-            tf1.transform.rotation.w = q1.w();
+            tf1.transform.rotation.x = q_offset.x();
+            tf1.transform.rotation.y = q_offset.y();
+            tf1.transform.rotation.z = q_offset.z();
+            tf1.transform.rotation.w = q_offset.w();
             transforms.push_back(tf1);
 
-            // Transform 2: global -> odom
+            // global -> odom: inverso dell'offset
+            tf2::Quaternion q_offset_inv = q_offset.inverse();
             geometry_msgs::msg::TransformStamped tf2;
-            tf2.header.stamp = now;
+            tf2.header.stamp    = now;
             tf2.header.frame_id = "global";
-            tf2.child_frame_id = "odom";
+            tf2.child_frame_id  = "odom";
             tf2.transform.translation.x = 0.0;
             tf2.transform.translation.y = 0.0;
             tf2.transform.translation.z = 0.0;
-            tf2::Quaternion q2;
-            // The global->odom transform must revert the yaw offset so that odom aligns with drone/map.
-            q2.setRPY(0, 0, -yaw_offset);
-            tf2.transform.rotation.x = q2.x();
-            tf2.transform.rotation.y = q2.y();
-            tf2.transform.rotation.z = q2.z();
-            tf2.transform.rotation.w = q2.w();
+            tf2.transform.rotation.x = q_offset_inv.x();
+            tf2.transform.rotation.y = q_offset_inv.y();
+            tf2.transform.rotation.z = q_offset_inv.z();
+            tf2.transform.rotation.w = q_offset_inv.w();
             transforms.push_back(tf2);
 
-            // Publish static transforms
             static_tf_broadcaster_->sendTransform(transforms);
             
             // We can unsubscribe now that we've published the static transform
@@ -128,8 +121,8 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_vio_;
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
-    std::optional<double> gt_yaw_;
-    std::optional<double> vio_yaw_;
+    std::optional<tf2::Quaternion> gt_q_;
+    std::optional<tf2::Quaternion> vio_q_;
     bool published_ = false;
 };
 

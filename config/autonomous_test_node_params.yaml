@@ -8,3 +8,7 @@ autonomous_test_node:
     # Command probabilities
     land_probability: 0.0      # 3% chance of sending land command to disable random landing during exploration testing
     max_consecutive_failures: 3 # Emergency land after this many consecutive failures
+    
+    # Exploration parameters
+    goal_distance_ratio: 0.5    # Ratio of max distance to spawn goal (0.5 = halfway)
+    min_forward_space: 1.5      # Minimum forward space required, otherwise return to start
