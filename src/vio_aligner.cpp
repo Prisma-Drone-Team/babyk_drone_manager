@@ -72,9 +72,17 @@ private:
             double roll, pitch, yaw;
             tf2::Matrix3x3(q_offset).getRPY(roll, pitch, yaw);
             
+            // THE HOLY GRAIL FIX: We MUST discard roll and pitch.
+            // OpenVINS aligns its Z-axis perfectly with gravity.
+            // If we apply Gazebo's physical roll/pitch tilt to the VIO pose, 
+            // PX4's EKF2 will see a conflict between IMU gravity and Vision gravity!
+            tf2::Quaternion q_yaw_only;
+            q_yaw_only.setRPY(0.0, 0.0, yaw);
+            q_yaw_only.normalize();
+            
             RCLCPP_INFO(this->get_logger(), "Publishing aligned static TF: drone/map -> global and global -> odom");
             RCLCPP_INFO(this->get_logger(),
-                "Full offset — roll: %.3f rad, pitch: %.3f rad, yaw: %.3f rad",
+                "Offset calculated - roll: %.3f, pitch: %.3f, yaw: %.3f rad. APPLYING YAW ONLY!",
                 roll, pitch, yaw);
 
             std::vector<geometry_msgs::msg::TransformStamped> transforms;
@@ -88,14 +96,14 @@ private:
             tf1.transform.translation.x = 0.0;
             tf1.transform.translation.y = 0.0;
             tf1.transform.translation.z = 0.0;
-            tf1.transform.rotation.x = q_offset.x();
-            tf1.transform.rotation.y = q_offset.y();
-            tf1.transform.rotation.z = q_offset.z();
-            tf1.transform.rotation.w = q_offset.w();
+            tf1.transform.rotation.x = q_yaw_only.x();
+            tf1.transform.rotation.y = q_yaw_only.y();
+            tf1.transform.rotation.z = q_yaw_only.z();
+            tf1.transform.rotation.w = q_yaw_only.w();
             transforms.push_back(tf1);
 
-            // global -> odom: inverso dell'offset
-            tf2::Quaternion q_offset_inv = q_offset.inverse();
+            // global -> odom: inverso dell'offset yaw-only
+            tf2::Quaternion q_offset_inv = q_yaw_only.inverse();
             geometry_msgs::msg::TransformStamped tf2;
             tf2.header.stamp    = now;
             tf2.header.frame_id = "global";
