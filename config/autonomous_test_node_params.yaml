@@ -10,5 +10,6 @@ autonomous_test_node:
     max_consecutive_failures: 3 # Emergency land after this many consecutive failures
     
     # Exploration parameters
+    max_goal_distance: 8.0      # Increased maximum radius for exploration step
     goal_distance_ratio: 0.5    # Ratio of max distance to spawn goal (0.5 = halfway)
     min_forward_space: 1.5      # Minimum forward space required, otherwise return to start

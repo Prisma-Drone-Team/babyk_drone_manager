@@ -1,4 +1,4 @@
-session_name: vins_simulation
+session_name: vins_simulation_sewer
 socket_name: drone_pathplanner
 environment:
   ROS_DOMAIN_ID: "56"
@@ -9,7 +9,7 @@ windows:
   panes:
     - shell_command:
         - cd ~/PX4_neabotics
-        - PX4_GZ_WORLD=leonardo_race make px4_sitl gz_baby_k  #HEADLESS:=1 # For standard PX4: use 'make px4_sitl gz_x500_depth'
+        - PX4_GZ_WORLD=sewer PX4_GZ_MODEL_POSE="0,0,5.1,0,0,0" make px4_sitl gz_baby_k  #HEADLESS:=1 # Sewer world
     - shell_command:
         - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
@@ -26,7 +26,7 @@ windows:
     - shell_command:
         - sleep 1
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo /camera@sensor_msgs/msg/Image[gz.msgs.Image /camera_rear@sensor_msgs/msg/Image[gz.msgs.Image /camera_rear_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo /depth_camera@sensor_msgs/msg/Image[gz.msgs.Image /world/leonardo_race/model/baby_k_0/link/base_link/sensor/imu_sensor/imu@sensor_msgs/msg/Imu[gz.msgs.IMU /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock /model/baby_k_0/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry
+        - ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo /camera@sensor_msgs/msg/Image[gz.msgs.Image /camera_rear@sensor_msgs/msg/Image[gz.msgs.Image /camera_rear_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo /depth_camera@sensor_msgs/msg/Image[gz.msgs.Image /world/sewer/model/baby_k_0/link/base_link/sensor/imu_sensor/imu@sensor_msgs/msg/Imu[gz.msgs.IMU /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock /model/baby_k_0/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
@@ -45,7 +45,7 @@ windows:
     - shell_command:
         - sleep 15
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch ov_msckf subscribe.launch.py config_path:=/root/ros2_ws/src/pkg/open_vins/config/baby_k/estimator_config.yaml max_cameras:=2 use_sim_time:=true use_approximate_sync:=true topic_camera0:=/camera topic_camera1:=/camera_rear use_stereo:=false topic_imu:=/world/leonardo_race/model/baby_k_0/link/base_link/sensor/imu_sensor/imu verbosity:="DEBUG" rviz_enable:=true
+        - ros2 launch ov_msckf subscribe.launch.py config_path:=/root/ros2_ws/src/pkg/open_vins/config/baby_k/estimator_config.yaml max_cameras:=2 use_sim_time:=true use_approximate_sync:=true topic_camera0:=/camera topic_camera1:=/camera_rear use_stereo:=false topic_imu:=/world/sewer/model/baby_k_0/link/base_link/sensor/imu_sensor/imu verbosity:="DEBUG" rviz_enable:=true
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
@@ -81,7 +81,7 @@ windows:
     - shell_command:
         - sleep 25
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=true
+        - ros2 launch babyk_drone_manager sewer_autonomous_test_node.launch.py simulation:=true
 
 - window_name: monitoring
   layout: tiled
@@ -122,4 +122,4 @@ windows:
     - shell_command:
         - sleep 26
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch vio_recovery launch_recovery.launch.py use_sim_time:=true
+        - ros2 launch vio_recovery launch_sewer_recovery.launch.py use_sim_time:=true

@@ -1,0 +1,33 @@
+session_name: test_open_box
+socket_name: drone_test
+environment:
+  ROS_DOMAIN_ID: "56"
+pre_window:
+windows:
+- window_name: px4
+  layout: tiled
+  panes:
+    - shell_command:
+        - cd ~/PX4_neabotics
+        - PX4_GZ_WORLD=corridor PX4_GZ_MODEL_POSE="0,0,5.1,0,0,0" make px4_sitl gz_baby_k
+    - shell_command:
+        - sleep 10
+        - MicroXRCEAgent udp4 -p 8888
+- window_name: bridge
+  layout: tiled
+  panes:
+    - shell_command:
+        - sleep 12
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo /camera@sensor_msgs/msg/Image[gz.msgs.Image /camera_rear@sensor_msgs/msg/Image[gz.msgs.Image /camera_rear_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo /depth_camera@sensor_msgs/msg/Image[gz.msgs.Image /world/sewer/model/baby_k_0/link/base_link/sensor/imu_sensor/imu@sensor_msgs/msg/Imu[gz.msgs.IMU /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock /model/baby_k_0/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry
+- window_name: terminal
+  layout: tiled
+  panes:
+    - shell_command:
+        - sleep 15
+        - cd ~/ros2_ws && source install/setup.bash
+        - echo "====================================="
+        - echo "1) Fai il decollo manualmente da QGC"
+        - echo "   oppure scrivi 'commander takeoff' nella finestra di PX4"
+        - echo "2) Dopodichè esegui ros2 run babyk_drone_manager open_box"
+        - echo "====================================="

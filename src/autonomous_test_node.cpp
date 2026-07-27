@@ -260,8 +260,12 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal(bool& shou
         if (count > 0) {
             double avg_lateral = (min_lateral + max_lateral) / 2.0;
             
-            // Dampen the lateral shift to avoid aggressive zig-zagging towards the edges of the FOV
-            avg_lateral *= 0.2;
+            // Lessen the damping to allow more lateral exploration
+            avg_lateral *= 0.8;
+            
+            // Add some randomness to make it less straight (between -1.0 and 1.0 meters)
+            std::uniform_real_distribution<double> lat_dist(-1.0, 1.0);
+            avg_lateral += lat_dist(gen_);
             
             double avg_z = sum_z / count;
             
