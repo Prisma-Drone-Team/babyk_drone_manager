@@ -139,10 +139,6 @@ install(TARGETS move_manager_node autonomous_test_node sewer_autonomous_test_nod
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(PROGRAMS
-  scripts/vio_aligner.py
-  DESTINATION lib/${PROJECT_NAME}
-)
 
 # Install launch and config files
 install(DIRECTORY 
