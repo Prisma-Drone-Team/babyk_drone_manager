@@ -13,6 +13,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.absolute()))
 
 def generate_launch_description():
     relay_odometry = LaunchConfiguration('relay_odometry', default='true')
+    gt_topic = LaunchConfiguration('gt_topic', default='/model/baby_k_0/odometry')
 
     return LaunchDescription([
         launch_ros.actions.Node(
@@ -32,8 +33,7 @@ def generate_launch_description():
                 }
             ],
             remappings=[
-                ('/odometry/filtered', '/model/baby_k_0/odometry'),  # Use Gazebo odometry directly in simulation
-                ('/fmu/in/vehicle_visual_odometry', '/dummy_visual_odometry') # Disable px4_tf_pub odometry injection so flight_odometry_filter can take over
+                ('/odometry/filtered', gt_topic),  # Use Gazebo odometry directly in simulation
             ],
             arguments=['--log-level', 'info']
         )  

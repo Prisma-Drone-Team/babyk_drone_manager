@@ -337,11 +337,6 @@ void AutonomousTestNode::send_explore_flyto()
     }
     
     Eigen::Vector3d goal = *goal_opt;
-    exploration_goal_counter_++;
-    std::string frame_name = "exploration_goal_" + std::to_string(exploration_goal_counter_);
-    
-    // The goal returned by find_frontier_goal() is already in 'map' frame!
-    
     geometry_msgs::msg::TransformStamped map_to_base;
     try {
         map_to_base = tf_buffer_->lookupTransform("map", "base_link", rclcpp::Time(0));
@@ -349,6 +344,9 @@ void AutonomousTestNode::send_explore_flyto()
         RCLCPP_WARN(this->get_logger(), "Could not get map->base_link: %s", ex.what());
         return;
     }
+
+    exploration_goal_counter_++;
+    std::string frame_name = "exploration_goal_" + std::to_string(exploration_goal_counter_);
     
     double yaw_map = std::atan2(goal(1) - map_to_base.transform.translation.y, goal(0) - map_to_base.transform.translation.x);
     
@@ -391,13 +389,32 @@ void AutonomousTestNode::command_timer_callback()
     
     // Initial takeoff after system starts
     if (!system_initialized_) {
-        if (is_system_idle()) {
-            RCLCPP_INFO(this->get_logger(), "System ready, sending initial takeoff");
+        // Check that the full TF chain map->base_link is available,
+        // which means vio_aligner has received both GT and VIO and published
+        // the drone/map->global->odom static transform.
+        bool tf_ready = false;
+        if (is_system_idle() && has_odometry_) {
+            try {
+                tf_buffer_->lookupTransform("map", "base_link", rclcpp::Time(0), rclcpp::Duration::from_seconds(0.0));
+                tf_ready = true;
+            } catch (const tf2::TransformException &) {
+                tf_ready = false;
+            }
+        }
+
+        if (tf_ready) {
+            RCLCPP_INFO(this->get_logger(), "TF map->base_link ready, sending initial takeoff");
             send_takeoff();
             system_initialized_ = true;
             last_command_time = current_time;
             last_status_change = current_time;
             return;
+        } else if (is_system_idle() && has_odometry_) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "Odometry received but TF map->base_link not yet available (waiting for vio_aligner)...");
+        } else if (is_system_idle()) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "Waiting for PX4 odometry and VIO TF alignment...");
         }
         return;
     }
@@ -566,8 +583,10 @@ void AutonomousTestNode::send_random_flyto()
 
 bool AutonomousTestNode::is_system_idle()
 {
-    return current_status_ == "IDLE" || 
-           current_status_ == "STOPPED" || 
+    return current_status_ == "IDLE" ||
+           current_status_ == "STOPPED" ||
+           current_status_ == "TRAJECTORY_COMPLETED" ||
+           current_status_ == "DIRECT_PATH_COMPLETED" ||
            current_status_ == "MISSION_COMPLETED";
 }
 

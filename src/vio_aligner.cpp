@@ -19,11 +19,19 @@ public:
         // In ROS 2, use_sim_time is automatically populated if passed via launch files
         this->get_parameter("use_sim_time", use_sim);
 
+        // GT odometry topic — configurable so sewer world (babyk_sewer_0) and
+        // corridor world (baby_k_0) can both use the same node.
+        this->declare_parameter<std::string>("gt_topic", "/model/baby_k_0/odometry");
+        std::string gt_topic = this->get_parameter("gt_topic").as_string();
+
         if (use_sim) {
-            RCLCPP_INFO(this->get_logger(), "[SIMULATION] Waiting for Gazebo GT and VIO to calculate initial yaw offset...");
+            RCLCPP_INFO(this->get_logger(),
+                "[SIMULATION] Subscribing to GT topic: %s", gt_topic.c_str());
+            RCLCPP_INFO(this->get_logger(),
+                "[SIMULATION] Waiting for Gazebo GT and VIO to calculate initial yaw offset...");
             
             sub_gt_ = this->create_subscription<nav_msgs::msg::Odometry>(
-                "/model/baby_k_0/odometry", 10,
+                gt_topic, 10,
                 std::bind(&VioAlignerNode::gt_cb, this, std::placeholders::_1));
 
             sub_vio_ = this->create_subscription<nav_msgs::msg::Odometry>(

@@ -1,0 +1,52 @@
+sewer_autonomous_test_node:
+  ros__parameters:
+
+    # ------------------------------------------------------------------
+    # Entry / exit waypoint
+    # ------------------------------------------------------------------
+    # Name of a TF frame to reach BEFORE starting the vertical descent
+    # exploration, and to return to when the exploration is finished or
+    # too many failures have occurred.
+    # Set to "" to skip both the approach and return phases (legacy
+    # behaviour: take off from spawn and ascend to z=5 on completion).
+    entry_frame: "sewer_entry"
+
+    # If true, fly back to entry_frame before landing when exploration
+    # finishes or on max-failure bail-out.
+    return_to_entry: false
+
+    # ------------------------------------------------------------------
+    # Timing
+    # ------------------------------------------------------------------
+    # Min/max wait between autonomous commands [s]
+    command_interval_min: 30
+    command_interval_max: 45
+
+    # Max time to wait for the current command to complete before
+    # forcibly sending a new one [s]
+    max_wait_time: 60
+
+    # Probability [0-1] of randomly issuing a land command instead of
+    # an exploration flyto. Set to 0 for pure exploration.
+    land_probability: 0.0
+
+    # Number of consecutive failures before triggering return/land
+    max_consecutive_failures: 3
+
+
+    # ------------------------------------------------------------------
+    # Sewer geometry
+    # ------------------------------------------------------------------
+    # Maximum downward distance searched for free frontier nodes [m]
+    max_descent_distance: 3.0
+
+    # Fraction of the detected free depth to use as the goal distance
+    # (e.g. 0.6 → go 60% of the way down to the frontier)
+    goal_distance_ratio: 0.6
+
+    # Minimum free depth below the drone needed to trigger a descent [m]
+    min_descent_space: 0.5
+
+    # Maximum lateral (XY) distance from the drone to consider free
+    # octomap nodes as part of the tunnel [m]
+    tunnel_radius: 2.0

@@ -689,22 +689,31 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*p
     }
 
     geometry_msgs::msg::Pose takeoff_pose;
-    bool used_tf = false;
-    // Prova a usare la trasformazione in "map" tramite lookup_transform
-    if (lookup_transform(base_link_frame_, takeoff_pose)) {
-        RCLCPP_INFO(get_logger(), "Takeoff using TF transform (base_link->map): [%.3f, %.3f]", 
-                    takeoff_pose.position.x, takeoff_pose.position.y);
-        used_tf = true;
-    } else {
-        // Fallback: usa la logica attuale
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        takeoff_pose = current_pose_;
-        RCLCPP_WARN(get_logger(), "TF transform failed, takeoff from current odometry pose: [%.3f, %.3f]", 
-                    takeoff_pose.position.x, takeoff_pose.position.y);
+    // Retry TF lookup: traj_interp always applies the drone/map->odom transform,
+    // so the pose MUST be expressed in parent_frame_ ("drone/map"). Using
+    // current_pose_ (in odom) as a fallback would silently double-transform the
+    // coordinates and cause lateral drift.
+    bool tf_ok = false;
+    for (int attempt = 0; attempt < 10 && !tf_ok; ++attempt) {
+        if (lookup_transform(base_link_frame_, takeoff_pose)) {
+            tf_ok = true;
+        } else {
+            RCLCPP_WARN(get_logger(), "TF lookup for takeoff failed (attempt %d/10), retrying in 100ms...", attempt + 1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     }
-    takeoff_pose.position.z = takeoff_altitude_;  // Only change altitude
 
+    if (!tf_ok) {
+        RCLCPP_ERROR(get_logger(), "Cannot takeoff: TF %s->%s unavailable after 10 attempts. Is vio_aligner running?",
+                     parent_frame_.c_str(), base_link_frame_.c_str());
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "ERROR_TF_UNAVAILABLE";
+        return;
+    }
 
+    RCLCPP_INFO(get_logger(), "Takeoff using TF (base_link in %s): [%.3f, %.3f]",
+                parent_frame_.c_str(), takeoff_pose.position.x, takeoff_pose.position.y);
+    takeoff_pose.position.z += takeoff_altitude_;  // Relative altitude above current position
 
     // Create SINGLE waypoint path for takeoff to avoid yaw calculation
     nav_msgs::msg::Path takeoff_path;
@@ -724,8 +733,9 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*p
         overall_status_ = "TAKING_OFF";
     }
 
-    RCLCPP_INFO(get_logger(), "Sent takeoff command to traj_interp: altitude %.3f (single waypoint)%s", 
-                takeoff_altitude_, used_tf ? " [TF used]" : " [fallback]");
+    RCLCPP_INFO(get_logger(), "Sent takeoff command to traj_interp: [%.3f, %.3f, %.3f] in %s",
+                takeoff_pose.position.x, takeoff_pose.position.y, takeoff_pose.position.z,
+                parent_frame_.c_str());
 }
 
 void MoveManagerNode::handle_land_command(const std::vector<std::string>& /*parts*/) {
@@ -737,26 +747,27 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& /*part
     }
     
     geometry_msgs::msg::Pose land_pose;
-    bool used_tf = false;
-    // Prova a usare la trasformazione in "map" tramite lookup_transform
-    if (lookup_transform(base_link_frame_, land_pose)) {
-        RCLCPP_INFO(get_logger(), "Landing using TF transform (base_link->map): [%.3f, %.3f, %.3f]", 
-                    land_pose.position.x, land_pose.position.y, land_pose.position.z);
-        used_tf = true;
-    } else {
-        // Fallback: usa la logica attuale
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        if (last_teleop_pose_.position.x != 0.0 || last_teleop_pose_.position.y != 0.0 || last_teleop_pose_.position.z != 0.0) {
-            land_pose = last_teleop_pose_;
-            RCLCPP_INFO(get_logger(), "Landing from last teleop position: [%.3f, %.3f, %.3f]", 
-                        land_pose.position.x, land_pose.position.y, land_pose.position.z);
+    bool tf_ok = false;
+    for (int attempt = 0; attempt < 10 && !tf_ok; ++attempt) {
+        if (lookup_transform(base_link_frame_, land_pose)) {
+            tf_ok = true;
         } else {
-            land_pose = current_pose_;  // Keep current orientation
-            RCLCPP_WARN(get_logger(), "TF transform failed, landing from current odometry pose: [%.3f, %.3f, %.3f]", 
-                        land_pose.position.x, land_pose.position.y, land_pose.position.z);
+            RCLCPP_WARN(get_logger(), "TF lookup for land failed (attempt %d/10), retrying in 100ms...", attempt + 1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
-    land_pose.position.z = landing_altitude_; // Use configurable landing altitude
+
+    if (!tf_ok) {
+        RCLCPP_ERROR(get_logger(), "Cannot land: TF %s->%s unavailable after 10 attempts.",
+                     parent_frame_.c_str(), base_link_frame_.c_str());
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        overall_status_ = "ERROR_TF_UNAVAILABLE";
+        return;
+    }
+
+    RCLCPP_INFO(get_logger(), "Landing using TF (base_link in %s): [%.3f, %.3f, %.3f]",
+                parent_frame_.c_str(), land_pose.position.x, land_pose.position.y, land_pose.position.z);
+    land_pose.position.z = landing_altitude_;
 
     // Create SINGLE waypoint path for landing to avoid yaw calculation
     nav_msgs::msg::Path land_path;
@@ -776,8 +787,9 @@ void MoveManagerNode::handle_land_command(const std::vector<std::string>& /*part
         overall_status_ = "LANDING";
     }
     
-    RCLCPP_INFO(get_logger(), "Sent land command to traj_interp: altitude %.3f (single waypoint)%s", 
-                landing_altitude_, used_tf ? " [TF used]" : " [fallback]");
+    RCLCPP_INFO(get_logger(), "Sent land command to traj_interp: [%.3f, %.3f, %.3f] in %s",
+                land_pose.position.x, land_pose.position.y, land_pose.position.z,
+                parent_frame_.c_str());
 }
 
 void MoveManagerNode::handle_stop_command() {
@@ -923,6 +935,11 @@ void MoveManagerNode::update_overall_status() {
                 seed_state_publisher_->publish(seed_state_msg);
             }
         }
+    } else if (traj_interp_status_ == "IDLE" && overall_status_ == "EXECUTING_DIRECT_PATH") {
+        overall_status_ = "DIRECT_PATH_COMPLETED";
+    } else if (traj_interp_status_ == "IDLE" && path_planner_status_ == "IDLE" && 
+               overall_status_ != "DIRECT_PATH_COMPLETED" && overall_status_ != "TRAJECTORY_COMPLETED") {
+        overall_status_ = "IDLE";
     }
     // Manteniamo lo stato PATH_FORWARDED finché traj_interp non inizia a seguire la traiettoria
     // Keep other statuses as they are
