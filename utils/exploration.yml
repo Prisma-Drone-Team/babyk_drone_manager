@@ -31,15 +31,6 @@ windows:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch move_manager move_manager.launch.py config_file:=config/move_manager_simulation.yaml --ros-args -p use_sim_time:=true
-    - shell_command:
-        - sleep 2
-        - cd ~/ros2_ws && source install/setup.bash
-        - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run tf2_ros static_transform_publisher 0.21233 -0.03000 -0.01122 0.5 -0.5 0.5 -0.5 base_link cam0 --ros-args -p use_sim_time:=true
-    - shell_command:
-        - sleep 2
-        - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run tf2_ros static_transform_publisher -0.40000 0.00000 -0.01500 0.56098 0.56098 -0.43046 -0.43046 base_link cam1 --ros-args -p use_sim_time:=true
 
     - shell_command:
         - sleep 15

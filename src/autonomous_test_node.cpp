@@ -389,32 +389,12 @@ void AutonomousTestNode::command_timer_callback()
     
     // Initial takeoff after system starts
     if (!system_initialized_) {
-        // Check that the full TF chain map->base_link is available,
-        // which means vio_aligner has received both GT and VIO and published
-        // the drone/map->global->odom static transform.
-        bool tf_ready = false;
-        if (is_system_idle() && has_odometry_) {
-            try {
-                tf_buffer_->lookupTransform("map", "base_link", rclcpp::Time(0), rclcpp::Duration::from_seconds(0.0));
-                tf_ready = true;
-            } catch (const tf2::TransformException &) {
-                tf_ready = false;
-            }
-        }
-
-        if (tf_ready) {
-            RCLCPP_INFO(this->get_logger(), "TF map->base_link ready, sending initial takeoff");
+        if (is_system_idle()) {
+            RCLCPP_INFO(this->get_logger(), "System idle, sending initial blind takeoff to trigger OpenVINS initialization");
             send_takeoff();
             system_initialized_ = true;
             last_command_time = current_time;
             last_status_change = current_time;
-            return;
-        } else if (is_system_idle() && has_odometry_) {
-            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                                 "Odometry received but TF map->base_link not yet available (waiting for vio_aligner)...");
-        } else if (is_system_idle()) {
-            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                                 "Waiting for PX4 odometry and VIO TF alignment...");
         }
         return;
     }
