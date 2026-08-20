@@ -92,9 +92,12 @@ Visualization Manager:
         drone/map:
           odom:
             base_link:
-              baby_k_0/OakD-Lite/base_link/IMX214: {}
-              baby_k_0/OakD-Lite/base_link/StereoOV7251: {}
-              base_link_FRD: {}
+              baby_k_0/OakD-Lite/base_link/IMX214:
+        Value: false
+              baby_k_0/OakD-Lite/base_link/StereoOV7251:
+        Value: false
+              base_link_FRD:
+        Value: false
         goal1: {}
         goal2: {}
         goal3: {}
