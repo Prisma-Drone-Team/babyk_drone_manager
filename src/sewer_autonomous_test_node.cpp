@@ -47,6 +47,7 @@ SewerAutonomousTestNode::SewerAutonomousTestNode()
 
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
 
     command_timer_ = this->create_wall_timer(5s, std::bind(&SewerAutonomousTestNode::command_timer_callback, this));
     RCLCPP_INFO(this->get_logger(), "Sewer Autonomous Test Node initialised.");
@@ -151,9 +152,6 @@ void SewerAutonomousTestNode::send_explore_go() {
     target_map.header.frame_id = "map";
     target_map.pose.orientation.w = 1.0;
     
-    static double explore_yaw = 0.0;
-    explore_yaw += 1.5708; // Ruota di 90 gradi per stabilizzare pitch/roll VIO
-    
     if (goal_opt) {
         target_map.pose.position.x = (*goal_opt)(0);
         target_map.pose.position.y = (*goal_opt)(1);
@@ -168,11 +166,23 @@ void SewerAutonomousTestNode::send_explore_go() {
         } catch (...) { return; }
     }
     
+    // Publish TF for visualization in RViz
+    exploration_goal_counter_++;
+    geometry_msgs::msg::TransformStamped t;
+    t.header.stamp = this->get_clock()->now();
+    t.header.frame_id = target_map.header.frame_id;
+    t.child_frame_id = "exploration_goal_" + std::to_string(exploration_goal_counter_);
+    t.transform.translation.x = target_map.pose.position.x;
+    t.transform.translation.y = target_map.pose.position.y;
+    t.transform.translation.z = target_map.pose.position.z;
+    t.transform.rotation.w = 1.0;
+    static_tf_broadcaster_->sendTransform(t);
+    
     try {
         auto target_ref = tf_buffer_->transform(target_map, reference_frame_, tf2::durationFromSec(0.1));
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(3)
-            << "go(" << target_ref.pose.position.x << "," << target_ref.pose.position.y << "," << target_ref.pose.position.z << "," << explore_yaw << ")";
+            << "go(" << target_ref.pose.position.x << "," << target_ref.pose.position.y << "," << target_ref.pose.position.z << ")";
         send_command(oss.str());
     } catch (...) {}
 }
@@ -212,12 +222,9 @@ void SewerAutonomousTestNode::command_timer_callback() {
     }
 
     if (phase_ == ExplorationPhase::INIT) {
-        if (is_system_idle() && has_odometry_) {
-            try {
-                tf_buffer_->lookupTransform("map", "base_link", rclcpp::Time(0), rclcpp::Duration::from_seconds(0.0));
-                send_takeoff();
-                phase_ = ExplorationPhase::GOTO_ENTRY;
-            } catch (...) {}
+        if (is_system_idle()) {
+            send_takeoff();
+            phase_ = ExplorationPhase::GOTO_ENTRY;
         }
         return;
     }
@@ -225,6 +232,10 @@ void SewerAutonomousTestNode::command_timer_callback() {
     if (phase_ == ExplorationPhase::GOTO_ENTRY) {
         if (is_system_idle() && current_status_ != "UNKNOWN") {
             if (!entry_command_sent_) {
+                if (!tf_buffer_->canTransform("map", "base_link", rclcpp::Time(0), rclcpp::Duration::from_seconds(0.0))) {
+                    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Waiting for TF tree (OpenVINS initialization) before sending sewer_entry goal...");
+                    return;
+                }
                 send_goto_entry();
                 last_command_time = current_time;
             } else {

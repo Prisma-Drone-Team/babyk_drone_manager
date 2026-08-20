@@ -23,13 +23,15 @@ public:
         // corridor world (baby_k_0) can both use the same node.
         this->declare_parameter<std::string>("gt_topic", "/model/baby_k_0/odometry");
         std::string gt_topic = this->get_parameter("gt_topic").as_string();
+        
+        this->declare_parameter<double>("yaw_offset", 0.0);
+        yaw_offset_ = this->get_parameter("yaw_offset").as_double();
 
         if (use_sim) {
             RCLCPP_INFO(this->get_logger(),
                 "[SIMULATION] Subscribing to GT topic: %s", gt_topic.c_str());
             RCLCPP_INFO(this->get_logger(),
                 "[SIMULATION] Waiting for Gazebo GT and VIO to calculate initial yaw offset...");
-            
             sub_gt_ = this->create_subscription<nav_msgs::msg::Odometry>(
                 gt_topic, 10,
                 std::bind(&VioAlignerNode::gt_cb, this, std::placeholders::_1));
@@ -38,11 +40,13 @@ public:
                 "/ov_msckf/odomimu", 10,
                 std::bind(&VioAlignerNode::vio_cb, this, std::placeholders::_1));
         } else {
-            RCLCPP_INFO(this->get_logger(), "[HARDWARE] Bypassing GT alignment. Forcing 0.0 offset and publishing TF immediately.");
+            RCLCPP_INFO(this->get_logger(), "[HARDWARE] Bypassing GT alignment. Forcing %.3f rad offset and publishing TF immediately.", yaw_offset_);
             tf2::Quaternion q;
-            q.setRPY(0, 0, 0);
+            q.setRPY(0, 0, yaw_offset_);
             gt_q_ = q;
-            vio_q_ = q;
+            tf2::Quaternion q_vio;
+            q_vio.setRPY(0, 0, 0);
+            vio_q_ = q_vio;
             check_and_publish();
         }
     }
@@ -140,6 +144,7 @@ private:
     std::optional<tf2::Quaternion> gt_q_;
     std::optional<tf2::Quaternion> vio_q_;
     bool published_ = false;
+    double yaw_offset_ = 0.0;
 };
 
 int main(int argc, char **argv)

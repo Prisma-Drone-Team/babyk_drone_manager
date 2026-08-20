@@ -49,7 +49,7 @@ windows:
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch babyk_drone_manager px4_tf_pub_simulation.launch.py use_sim_time:=true gt_topic:=/model/babyk_sewer_0/odometry relay_odometry:=false
+        - ros2 launch babyk_drone_manager px4_tf_pub_simulation.launch.py use_sim_time:=true gt_topic:=/model/babyk_sewer_0/odometry
 
     - shell_command:
         - sleep 3

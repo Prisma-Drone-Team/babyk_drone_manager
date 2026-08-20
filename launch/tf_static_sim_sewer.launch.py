@@ -35,36 +35,20 @@ def generate_launch_description():
         # By setting drone/map at Z=5.8 in map, we force map Z=0 to exactly match Gazebo Z=0!
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['0', '0', '0', '0', '0', '0', '1', 'map', 'drone/map']),
+            arguments=['0', '0', '5.8', '0', '0', '0', 'map', 'drone/map']),
 
-        # Sewer entry: sewer at world X=4.0, drone at world X=0.0 → map X=4.0.
-        # Tube top is at world Z=5.91. Hover target world Z=6.2.
-        # Since map frame now perfectly matches Gazebo world, we can use exact world coordinates!
+        # Sewer entry: fixed relative to the drone's takeoff position (odom frame).
+        # It is 4.0m forward and 0.2m higher than the takeoff point.
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['4.0', '0', '6.2', '0', '0', '0', '1', 'map', 'sewer_entry']),
+            arguments=['4.0', '0', '0.2', '0', '0', '0', 'odom', 'sewer_entry']),
 
-        # VIO aligner in hardware mode: by passing use_sim_time=False the node
-        # immediately publishes identity TFs for drone/map→global and global→odom
-        # without waiting for OpenVINS odometry. In the sewer the drone always
-        # starts at yaw=0 so the offset is 0 — identical to what the dynamic
-        # aligner would compute. This mirrors the corridor behaviour exactly.
-        # NOTE: global→imu is still published only by OpenVINS once it initialises.
+        # Modalità dinamica:
+        # vio_aligner_node aspetterà l'inizializzazione di OpenVINS e calcolerà
+        # l'offset dinamicamente, allineando "odom" con "drone/map" a prescindere
+        # dall'angolo (yaw) casuale con cui OpenVINS si inizializza.
         Node(
             package='babyk_drone_manager', executable='vio_aligner_node', output='screen',
-            parameters=[{'use_sim_time': False}]),
+            parameters=[{'gt_topic': '/model/babyk_sewer_0/odometry'}]),
 
-        # global -> imu (identity bootstrap): bridges the two disconnected TF trees
-        # (map->...->global and imu->base_link) so that map->base_link is available
-        # immediately from t=2s. OpenVINS overwrites this with the real dynamic
-        # pose estimate once it initialises (~20 s). Safe because the drone sits
-        # at the VIO origin (0,0,0 in global frame) during the ZUPT phase.
-        # There is NO conflict: in TF2, dynamic transforms on /tf always take
-        # precedence over static ones on /tf_static for recent timestamps.
-        Node(
-            package='tf2_ros', executable='static_transform_publisher', output='screen',
-            # Bootstrap: global→imu at identity (Z=0).
-            # The drone/map→global chain already accounts for the 5.2m elevation
-            # (map→drone/map at Z=5.2). Adding height here would double-count it.
-            arguments=['0', '0', '0', '0', '0', '0', '1', 'global', 'imu']),
     ])

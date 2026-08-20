@@ -704,11 +704,10 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*p
     }
 
     if (!tf_ok) {
-        RCLCPP_ERROR(get_logger(), "Cannot takeoff: TF %s->%s unavailable after 10 attempts. Is vio_aligner running?",
-                     parent_frame_.c_str(), base_link_frame_.c_str());
+        RCLCPP_WARN(get_logger(), "TF %s->%s unavailable. Falling back to current odometry pose for blind takeoff to trigger OpenVINS initialization.",
+                    parent_frame_.c_str(), base_link_frame_.c_str());
         std::lock_guard<std::mutex> lock(state_mutex_);
-        overall_status_ = "ERROR_TF_UNAVAILABLE";
-        return;
+        takeoff_pose = current_pose_;
     }
 
     RCLCPP_INFO(get_logger(), "Takeoff using TF (base_link in %s): [%.3f, %.3f]",
