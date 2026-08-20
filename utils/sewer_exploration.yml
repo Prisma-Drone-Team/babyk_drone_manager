@@ -32,8 +32,6 @@ windows:
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 1 imu base_link --ros-args -p use_sim_time:=true
-
         # NOTE: imu→cam0 and imu→cam1 are published by OpenVINS from kalibr_imucam_chain.yaml
         # (publish_calibration_tf=true by default). Do NOT add duplicate static_transform_publishers
         # for these frames or TF2 will have two conflicting publishers for the same transform.

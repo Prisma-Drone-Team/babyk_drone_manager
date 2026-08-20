@@ -41,7 +41,7 @@ def generate_launch_description():
         # It is 4.0m forward and 0.2m higher than the takeoff point.
         Node(
             package='tf2_ros', executable='static_transform_publisher', output='screen',
-            arguments=['4.0', '0', '0.2', '0', '0', '0', 'odom', 'sewer_entry']),
+            arguments=['4.0', '0', '6.0', '0', '0', '0', 'odom', 'sewer_entry']),
 
         # Modalità dinamica:
         # vio_aligner_node aspetterà l'inizializzazione di OpenVINS e calcolerà

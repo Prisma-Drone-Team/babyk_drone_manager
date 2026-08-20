@@ -47,6 +47,9 @@ public:
             tf2::Quaternion q_vio;
             q_vio.setRPY(0, 0, 0);
             vio_q_ = q_vio;
+            geometry_msgs::msg::Point pt;
+            pt.x = 0.0; pt.y = 0.0; pt.z = 0.0;
+            gt_pos_ = pt;
             check_and_publish();
         }
     }
@@ -58,6 +61,7 @@ private:
         if (!gt_q_.has_value()) {
             auto& o = msg->pose.pose.orientation;
             gt_q_ = tf2::Quaternion(o.x, o.y, o.z, o.w);
+            gt_pos_ = msg->pose.pose.position;
             check_and_publish();
         }
     }
@@ -120,9 +124,19 @@ private:
             tf2.header.stamp    = now;
             tf2.header.frame_id = "global";
             tf2.child_frame_id  = "odom";
-            tf2.transform.translation.x = 0.0;
-            tf2.transform.translation.y = 0.0;
-            tf2.transform.translation.z = 0.0;
+            
+            // Calculate the translation from global to odom
+            // The global frame originates at the drone's starting position (gt_pos_).
+            // So in odom coordinates, global is at gt_pos_.
+            // We want the transform from global to odom.
+            // P_global = q_offset_inv * (P_odom - gt_pos_)
+            // For the origin of odom (P_odom = 0,0,0), P_global = q_offset_inv * (-gt_pos_)
+            tf2::Vector3 gt_pos_vec(gt_pos_.value().x, gt_pos_.value().y, gt_pos_.value().z);
+            tf2::Vector3 global_to_odom_trans = tf2::quatRotate(q_offset_inv, -gt_pos_vec);
+
+            tf2.transform.translation.x = global_to_odom_trans.x();
+            tf2.transform.translation.y = global_to_odom_trans.y();
+            tf2.transform.translation.z = global_to_odom_trans.z();
             tf2.transform.rotation.x = q_offset_inv.x();
             tf2.transform.rotation.y = q_offset_inv.y();
             tf2.transform.rotation.z = q_offset_inv.z();
@@ -142,6 +156,7 @@ private:
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
     std::optional<tf2::Quaternion> gt_q_;
+    std::optional<geometry_msgs::msg::Point> gt_pos_;
     std::optional<tf2::Quaternion> vio_q_;
     bool published_ = false;
     double yaw_offset_ = 0.0;

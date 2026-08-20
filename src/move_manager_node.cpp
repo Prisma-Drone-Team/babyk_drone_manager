@@ -266,6 +266,12 @@ void MoveManagerNode::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr
     std::lock_guard<std::mutex> lock(state_mutex_);
     current_pose_ = msg->pose.pose;
     
+    if (!odometry_received_) {
+        odometry_received_ = true;
+        RCLCPP_INFO(get_logger(), "First odometry received: [%.3f, %.3f, %.3f]", 
+                    current_pose_.position.x, current_pose_.position.y, current_pose_.position.z);
+    }
+
     // Publish TF in simulation mode
     if (simulation_mode_) {
         geometry_msgs::msg::TransformStamped transform_stamped;
@@ -275,7 +281,7 @@ void MoveManagerNode::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr
         transform_stamped.header.frame_id = child_frame_;
         transform_stamped.child_frame_id = base_link_frame_;
 
-        // Set translation (position)
+        // Set translation (position) USING current_pose_
         transform_stamped.transform.translation.x = msg->pose.pose.position.x;
         transform_stamped.transform.translation.y = msg->pose.pose.position.y;
         transform_stamped.transform.translation.z = msg->pose.pose.position.z;
@@ -881,9 +887,10 @@ nav_msgs::msg::Path MoveManagerNode::create_direct_path(const geometry_msgs::msg
     // Add current position as start
     geometry_msgs::msg::PoseStamped start_pose;
     start_pose.header = path.header;
-    {
+    if (!lookup_transform(base_link_frame_, start_pose.pose)) {
         std::lock_guard<std::mutex> lock(state_mutex_);
         start_pose.pose = current_pose_;
+        RCLCPP_WARN(get_logger(), "TF lookup failed for start pose, falling back to current_pose_ (may cause drift)");
     }
     path.poses.push_back(start_pose);
     

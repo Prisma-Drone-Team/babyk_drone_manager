@@ -92,6 +92,7 @@ private:
     std::string frame_flyto_;
     std_msgs::msg::String mode_msg_;
     bool odometry_received_;
+    geometry_msgs::msg::Point initial_position_;
     std::atomic<bool> running_;
     std::string path_planner_status_;
     std::string traj_interp_status_;

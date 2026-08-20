@@ -34,7 +34,6 @@ windows:
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 1 imu base_link --ros-args -p use_sim_time:=true
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 run tf2_ros static_transform_publisher 0.21233 -0.03000 -0.01122 0.5 -0.5 0.5 -0.5 base_link cam0 --ros-args -p use_sim_time:=true
     - shell_command:
@@ -69,7 +68,7 @@ windows:
     - shell_command:
         - sleep 21
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch babyk_drone_manager move_manager.launch.py config_file:=/root/ros2_ws/src/pkg/babyk_drone_manager/config/move_manager_simulation.yaml simulation:=false
+        - ros2 launch babyk_drone_manager move_manager.launch.py config_file:=/root/ros2_ws/src/pkg/babyk_drone_manager/config/move_manager_simulation.yaml simulation:=true
     - shell_command:
         - sleep 22
         - cd ~/ros2_ws && source install/setup.bash
