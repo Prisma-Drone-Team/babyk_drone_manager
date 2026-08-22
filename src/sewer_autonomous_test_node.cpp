@@ -1,6 +1,9 @@
 #include "babyk_drone_manager/sewer_autonomous_test_node.h"
 #include <sstream>
 #include <iomanip>
+#include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 using namespace std::chrono_literals;
 
@@ -38,6 +41,7 @@ SewerAutonomousTestNode::SewerAutonomousTestNode()
     reference_frame_           = this->get_parameter("reference_frame").as_string();
 
     command_publisher_ = this->create_publisher<std_msgs::msg::String>("/seed_pdt_drone/command", 10);
+    enable_fsm_publisher_ = this->create_publisher<std_msgs::msg::Bool>("/fsm/enable_arming", 10);
     status_subscriber_ = this->create_subscription<std_msgs::msg::String>("/trajectory_interpolator/status", 10, std::bind(&SewerAutonomousTestNode::status_callback, this, std::placeholders::_1));
 
     rclcpp::QoS sensor_qos(rclcpp::KeepLast(10));
@@ -157,13 +161,9 @@ void SewerAutonomousTestNode::send_explore_go() {
         target_map.pose.position.y = (*goal_opt)(1);
         target_map.pose.position.z = (*goal_opt)(2);
     } else {
-        // Fallback discesa cieca se l'interno del tubo è unknown
-        try {
-            auto drone_tf = tf_buffer_->lookupTransform("map", "base_link", rclcpp::Time(0));
-            target_map.pose.position.x = drone_tf.transform.translation.x;
-            target_map.pose.position.y = drone_tf.transform.translation.y;
-            target_map.pose.position.z = std::max(drone_tf.transform.translation.z - 1.0, 0.5);
-        } catch (...) { return; }
+        RCLCPP_WARN(this->get_logger(), "Spazio libero inferiore a 0.5m o mappa ignota. Torno a sewer_entry!");
+        send_goto_entry();
+        return;
     }
     
     // Publish TF for visualization in RViz
@@ -190,6 +190,9 @@ void SewerAutonomousTestNode::send_explore_go() {
 void SewerAutonomousTestNode::send_goto_entry() {
     if (entry_frame_.empty()) {
         phase_ = ExplorationPhase::EXPLORING;
+        auto enable_msg = std_msgs::msg::Bool();
+        enable_msg.data = true;
+        enable_fsm_publisher_->publish(enable_msg);
         return;
     }
     try {
@@ -246,6 +249,9 @@ void SewerAutonomousTestNode::command_timer_callback() {
                     double dy = map_to_base.transform.translation.y - map_to_entry.transform.translation.y;
                     if (std::sqrt(dx*dx + dy*dy) <= entry_position_tolerance_) {
                         phase_ = ExplorationPhase::EXPLORING;
+                        auto enable_msg = std_msgs::msg::Bool();
+                        enable_msg.data = true;
+                        enable_fsm_publisher_->publish(enable_msg);
                     } else if ((current_time - last_command_time).seconds() >= 10.0) {
                         send_goto_entry();
                         last_command_time = current_time;

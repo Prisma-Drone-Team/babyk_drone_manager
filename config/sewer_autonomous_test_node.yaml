@@ -42,7 +42,7 @@ sewer_autonomous_test_node:
 
     # Fraction of the detected free depth to use as the goal distance
     # (e.g. 0.6 → go 60% of the way down to the frontier)
-    goal_distance_ratio: 0.6
+    goal_distance_ratio: 0.25
 
     # Minimum free depth below the drone needed to trigger a descent [m]
     min_descent_space: 0.5

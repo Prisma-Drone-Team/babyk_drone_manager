@@ -3,6 +3,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <octomap_msgs/msg/octomap.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <tf2_ros/transform_broadcaster.h>
@@ -45,6 +46,7 @@ private:
     std::optional<Eigen::Vector3d> find_vertical_frontier_goal();
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr command_publisher_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr enable_fsm_publisher_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_subscriber_;
     rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr octomap_subscriber_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_subscriber_;
