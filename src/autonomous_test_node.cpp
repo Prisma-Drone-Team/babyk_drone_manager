@@ -263,8 +263,8 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal(bool& shou
             // Lessen the damping to allow more lateral exploration
             avg_lateral *= 0.8;
             
-            // Add some randomness to make it less straight (between -1.0 and 1.0 meters)
-            std::uniform_real_distribution<double> lat_dist(-1.0, 1.0);
+            // Add some randomness to make it less straight (between -0.3 and 0.3 meters)
+            std::uniform_real_distribution<double> lat_dist(-0.3, 0.3);
             avg_lateral += lat_dist(gen_);
             
             double avg_z = sum_z / count;
@@ -275,7 +275,7 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal(bool& shou
             
             double goal_x = drone_x + target_forward * forward_x + avg_lateral * (-forward_y);
             double goal_y = drone_y + target_forward * forward_y + avg_lateral * forward_x;
-            
+
             // Constrain Z to reasonable flight altitudes
             if (avg_z < 0.5) avg_z = 0.5;
             if (avg_z > 2.0) avg_z = 2.0;

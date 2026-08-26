@@ -9,7 +9,7 @@ windows:
   panes:
     - shell_command:
         - cd ~/PX4_neabotics
-        - PX4_GZ_MODEL=babyk_sewer PX4_GZ_WORLD=sewer PX4_GZ_MODEL_POSE="0.0,0,5.8,0,0,0" make px4_sitl gz_babyk_sewer  #HEADLESS:=1 # Sewer world: cam_down + cam_up for VIO
+        - PX4_GZ_MODEL=babyk_sewer PX4_GZ_WORLD=sewer PX4_GZ_MODEL_POSE="0.0,0,5.8,0,0,0" make px4_sitl gz_babyk_sewer  HEADLESS:=1 # Sewer world: cam_down + cam_up for VIO
     - shell_command:
         - sleep 20
         - cd ~/ros2_ws && source install/setup.bash
@@ -72,7 +72,7 @@ windows:
     - shell_command:
         - sleep 12
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch vio_mapping mapper.launch.py use_sim_time:=true virtual_range:=8.0
+        - ros2 launch vio_mapping mapper.launch.py use_sim_time:=true virtual_range:=8.0 scenario:=sewer
     - shell_command:
         - sleep 25  # OpenVINS needs time to initialize static IMU before arming
         - cd ~/ros2_ws && source install/setup.bash
