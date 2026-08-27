@@ -67,6 +67,8 @@ private:
     std::string entry_frame_;
     double entry_position_tolerance_;
     std::string reference_frame_;
+    double min_altitude_map_;   // Minimum altitude in map frame before returning to entry
+    double min_z_odom_;          // Minimum Z in odom/PX4 ENU frame (Z=0 at spawn, negative down)
 
     std::string current_status_;
     int consecutive_failures_;

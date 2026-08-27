@@ -28,6 +28,8 @@ SewerAutonomousTestNode::SewerAutonomousTestNode()
     this->declare_parameter("entry_frame", std::string("sewer_entry"));
     this->declare_parameter("entry_position_tolerance", 0.3);
     this->declare_parameter("reference_frame", std::string("drone/map"));
+    this->declare_parameter("min_altitude_map", 1.0);
+    this->declare_parameter("min_z_odom", -4.5);       // Z in odom ENU (Z=0 at spawn): -(spawn_z - floor_z - 0.5m)
 
     command_interval_min_ = this->get_parameter("command_interval_min").as_int();
     command_interval_max_ = this->get_parameter("command_interval_max").as_int();
@@ -39,6 +41,8 @@ SewerAutonomousTestNode::SewerAutonomousTestNode()
     entry_frame_               = this->get_parameter("entry_frame").as_string();
     entry_position_tolerance_  = this->get_parameter("entry_position_tolerance").as_double();
     reference_frame_           = this->get_parameter("reference_frame").as_string();
+    min_altitude_map_          = this->get_parameter("min_altitude_map").as_double();
+    min_z_odom_                = this->get_parameter("min_z_odom").as_double();
 
     command_publisher_ = this->create_publisher<std_msgs::msg::String>("/seed_pdt_drone/command", 10);
     enable_fsm_publisher_ = this->create_publisher<std_msgs::msg::Bool>("/fsm/enable_arming", 10);
@@ -47,7 +51,9 @@ SewerAutonomousTestNode::SewerAutonomousTestNode()
     rclcpp::QoS sensor_qos(rclcpp::KeepLast(10));
     sensor_qos.best_effort();
     octomap_subscriber_ = this->create_subscription<octomap_msgs::msg::Octomap>("/octomap_binary", sensor_qos, std::bind(&SewerAutonomousTestNode::octomap_callback, this, std::placeholders::_1));
-    odometry_subscriber_ = this->create_subscription<nav_msgs::msg::Odometry>("/px4/odometry/out", sensor_qos, std::bind(&SewerAutonomousTestNode::odometry_callback, this, std::placeholders::_1));
+    odometry_subscriber_ = this->create_subscription<nav_msgs::msg::Odometry>(
+        "/ov_msckf/odomimu", sensor_qos,
+        std::bind(&SewerAutonomousTestNode::odometry_callback, this, std::placeholders::_1));
 
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -150,6 +156,19 @@ std::optional<Eigen::Vector3d> SewerAutonomousTestNode::find_vertical_frontier_g
 }
 
 void SewerAutonomousTestNode::send_explore_go() {
+    // Safety floor check: direct Z comparison on PX4 odom ENU (Z=0 at spawn, negative going down).
+    // Formula: -(spawn_z_gazebo - floor_z_gazebo - 0.5m) = -(5.8 - 0 - 0.5) = -5.3m theoretical.
+    // Observed effective floor in simulation: ~-4.7m → default set to -4.5m (conservative).
+    // Tune via 'min_z_odom' parameter in sewer_autonomous_test_node.yaml.
+    if (has_odometry_ && current_pos_.z() < min_z_odom_) {
+        RCLCPP_WARN(get_logger(),
+            "[FLOOR CHECK] odom Z=%.2fm < soglia %.2fm → switch GOTO_ENTRY.",
+            current_pos_.z(), min_z_odom_);
+        phase_ = ExplorationPhase::GOTO_ENTRY;
+        entry_command_sent_ = false;
+        return;
+    }
+
     auto goal_opt = find_vertical_frontier_goal();
     
     geometry_msgs::msg::PoseStamped target_map;

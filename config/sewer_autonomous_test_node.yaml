@@ -50,3 +50,16 @@ sewer_autonomous_test_node:
     # Maximum lateral (XY) distance from the drone to consider free
     # octomap nodes as part of the tunnel [m]
     tunnel_radius: 2.0
+
+    # Minimum altitude in the 'map' TF frame before the drone returns
+    # to sewer_entry. In the sewer simulation, map Z=0 = Gazebo ground level,
+    # so this value directly represents the height above the sewer floor [m].
+    min_altitude_map: 0.7
+
+    # Minimum Z in the PX4 odom ENU frame (Z=0 at spawn, negative going down)
+    # that triggers a return to sewer_entry. Used as primary floor check.
+    # Formula: -(spawn_z_gazebo - floor_z_gazebo - safety_margin)
+    #          = -(5.8 - 0 - 0.5) = -5.3m  [theoretical]
+    # Observed effective floor in simulation: ~-4.7m (tube structure at ~Z=1.1m inside)
+    # Default: -4.5m (conservative, 0.2m above observed floor).
+    min_z_odom: -4.5
