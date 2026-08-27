@@ -401,9 +401,7 @@ void MoveManagerNode::process_command(const std::vector<std::string>& command_pa
     } else if (command == "go") {
         handle_go_command(command_parts);
     } else if (command == "takeoff") {
-        handle_takeoff_command(command_parts);
-        mode_msg_.data = "takeoff";
-        path_mode_pub_->publish(mode_msg_);
+        handle_takeoff_command(command_parts);  // publishes mode before path internally
     } else if (command == "land") {
         handle_land_command(command_parts);
         mode_msg_.data = "land";
@@ -730,7 +728,15 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*p
     target_pose.header = takeoff_path.header;
     target_pose.pose = takeoff_pose;
     takeoff_path.poses.push_back(target_pose);
-    
+
+    // IMPORTANT: publish mode BEFORE path so traj_interp has _is_takeoff=true
+    // when it receives the path and applies the correct (slow) Z limits.
+    mode_msg_.data = "takeoff";
+    path_mode_pub_->publish(mode_msg_);
+
+    // Small delay to ensure traj_interp's executor processes path_mode before path.
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
     traj_interp_path_pub_->publish(takeoff_path);
 
     {
