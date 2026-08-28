@@ -1,0 +1,117 @@
+#ifndef WAREHOUSE_TEST_NODE_H
+#define WAREHOUSE_TEST_NODE_H
+
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <random>
+#include <vector>
+#include <chrono>
+#include <memory>
+#include <optional>
+
+// Prevent grid_map_core from injecting its plugins if we just want basic Eigen
+#ifdef EIGEN_DENSEBASE_PLUGIN
+#undef EIGEN_DENSEBASE_PLUGIN
+#endif
+#ifdef EIGEN_MATRIXBASE_PLUGIN
+#undef EIGEN_MATRIXBASE_PLUGIN
+#endif
+#ifdef EIGEN_FUNCTORS_PLUGIN
+#undef EIGEN_FUNCTORS_PLUGIN
+#endif
+#ifdef EIGEN_QUATERNIONBASE_PLUGIN
+#undef EIGEN_QUATERNIONBASE_PLUGIN
+#endif
+#ifdef EIGEN_QUATERNION_PLUGIN
+#undef EIGEN_QUATERNION_PLUGIN
+#endif
+
+#include <Eigen/Core>
+
+#include <nav_msgs/msg/odometry.hpp>
+#include <octomap_msgs/msg/octomap.hpp>
+#include <octomap_msgs/conversions.h>
+#include <octomap/octomap.h>
+#include <octomap/OcTree.h>
+
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+
+class WarehouseTestNode : public rclcpp::Node
+{
+public:
+    WarehouseTestNode();
+
+private:
+    // Timer callback for sending commands
+    void command_timer_callback();
+    
+    // Callback for status updates
+    void status_callback(const std_msgs::msg::String::SharedPtr msg);
+    
+    // Callback for octomap
+    void octomap_callback(const octomap_msgs::msg::Octomap::SharedPtr msg);
+    
+    // Callback for odometry
+    void odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    
+    // Helper functions
+    void send_command(const std::string& command);
+    void send_takeoff();
+    void send_land();
+    void send_random_flyto();
+    void send_explore_flyto(); // Replaces random_flyto in exploration mode
+    bool is_system_idle();
+    
+    // Exploration logic
+    std::optional<Eigen::Vector3d> find_frontier_goal(bool& should_return);
+    
+    // ROS2 interfaces
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr command_publisher_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_subscriber_;
+    rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr octomap_subscriber_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_subscriber_;
+    rclcpp::TimerBase::SharedPtr command_timer_;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    
+    // State variables
+    std::string current_status_;
+    bool last_command_was_land_;
+    bool system_initialized_;
+    std::vector<std::string> available_goals_;
+    int consecutive_failures_;         // Counter for consecutive failures
+    std::string last_command_sent_;    // Track what command was sent
+    
+    // Exploration state
+    std::shared_ptr<octomap::OcTree> octree_;
+    std::string octomap_frame_id_ = "";
+    Eigen::Vector3d current_pos_;
+    bool has_odometry_;
+    int exploration_goal_counter_;
+    std::optional<Eigen::Vector3d> last_assigned_goal_;
+    
+    // Random number generation
+    std::random_device rd_;
+    std::mt19937 gen_;
+    std::uniform_int_distribution<int> command_dist_;
+    
+    // Parameters
+    int command_interval_min_;
+    int command_interval_max_;
+    int max_wait_time_;
+    double land_probability_;
+    int max_consecutive_failures_;    // Max failures before emergency land
+    double max_goal_distance_;        // Max forward distance for exploration goals
+    double goal_distance_ratio_;      // Ratio of max distance to spawn goal (0.5 = halfway)
+    double min_forward_space_;        // Minimum forward space required, otherwise land
+    double lateral_randomness_;       // Randomness for lateral offset
+    double random_dir_prob_;          // Probability of exploring in a completely random direction
+    double random_node_prob_;         // Probability of picking a completely random known free node
+};
+
+#endif // WAREHOUSE_TEST_NODE_H

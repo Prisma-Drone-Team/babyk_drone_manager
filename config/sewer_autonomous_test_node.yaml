@@ -40,9 +40,11 @@ sewer_autonomous_test_node:
     # Maximum downward distance searched for free frontier nodes [m]
     max_descent_distance: 3.0
 
-    # Fraction of the detected free depth to use as the goal distance
-    # (e.g. 0.6 → go 60% of the way down to the frontier)
-    goal_distance_ratio: 0.25
+    # Exploration parameters
+    max_goal_distance: 3.0      # Reduced maximum radius for tight sewer environment
+    goal_distance_ratio: 0.30   # Spawn goal closer to current position (30% of max distance)
+    min_forward_space: 0.8      # Reduced minimum forward space required for sewer
+    lateral_randomness: 0.3     # Tight randomness for narrow sewer spaces
 
     # Minimum free depth below the drone needed to trigger a descent [m]
     min_descent_space: 0.5

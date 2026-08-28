@@ -71,6 +71,23 @@ ament_target_dependencies(autonomous_test_node
 target_include_directories(autonomous_test_node PUBLIC ${EIGEN3_INCLUDE_DIRS})
 target_link_libraries(autonomous_test_node Eigen3::Eigen)
 
+add_executable(warehouse_test_node src/warehouse_test_node.cpp)
+
+ament_target_dependencies(warehouse_test_node 
+  rclcpp 
+  std_msgs 
+  geometry_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  octomap
+  octomap_msgs
+  grid_map_core
+)
+target_include_directories(warehouse_test_node PUBLIC ${EIGEN3_INCLUDE_DIRS})
+target_link_libraries(warehouse_test_node Eigen3::Eigen)
+
 add_executable(sewer_autonomous_test_node src/sewer_autonomous_test_node.cpp)
 
 ament_target_dependencies(sewer_autonomous_test_node
@@ -119,6 +136,11 @@ target_include_directories(autonomous_test_node PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(warehouse_test_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
 target_include_directories(sewer_autonomous_test_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -135,7 +157,7 @@ target_link_libraries(move_manager_node
 )
 
 # Install targets
-install(TARGETS move_manager_node autonomous_test_node sewer_autonomous_test_node exploration_node vio_aligner_node open_box
+install(TARGETS move_manager_node autonomous_test_node warehouse_test_node sewer_autonomous_test_node exploration_node vio_aligner_node open_box
   DESTINATION lib/${PROJECT_NAME}
 )
 

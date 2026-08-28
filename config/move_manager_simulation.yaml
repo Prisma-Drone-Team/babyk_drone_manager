@@ -23,7 +23,7 @@ move_manager_node:
     joy_topic: "/joy"
     
     # Flight parameters
-    takeoff_altitude: 1.5  # meters
+    takeoff_altitude: 2.0  # meters
     landing_altitude: -0.5  # meters
     
     # Simulation parameters
