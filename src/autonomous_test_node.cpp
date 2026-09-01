@@ -263,8 +263,8 @@ std::optional<Eigen::Vector3d> AutonomousTestNode::find_frontier_goal(bool& shou
             // Lessen the damping to allow more lateral exploration
             avg_lateral *= 0.8;
             
-            // Add some randomness to make it less straight (between -0.3 and 0.3 meters)
-            std::uniform_real_distribution<double> lat_dist(-0.3, 0.3);
+            // Add some randomness to make it less straight (between -1.0 and 1.0 meters)
+            std::uniform_real_distribution<double> lat_dist(-1.0, 1.0);
             avg_lateral += lat_dist(gen_);
             
             double avg_z = sum_z / count;
