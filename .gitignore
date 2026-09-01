@@ -3,5 +3,4 @@ utils/gcs_help.txt
 utils/mpc_core.yml
 
 # Ignore scripts and plotjuggler
-scripts/
 plotjuggler/
