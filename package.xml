@@ -20,8 +20,8 @@
   <depend>px4_msgs</depend>
 
   <!-- RTABMap and SLAM dependencies -->
-  <depend>rtabmap_ros</depend>
-  <depend>rtabmap_util</depend>
+
+
   <depend>sensor_msgs</depend>
   <depend>image_transport</depend>
   <depend>visualization_msgs</depend>

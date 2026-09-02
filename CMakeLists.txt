@@ -20,8 +20,8 @@ find_package(octomap_msgs REQUIRED)
 find_package(px4_msgs REQUIRED)
 
 # RTABMap and SLAM dependencies
-find_package(rtabmap_ros REQUIRED)
-find_package(rtabmap_util REQUIRED)
+
+
 find_package(sensor_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(visualization_msgs REQUIRED)
