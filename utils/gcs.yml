@@ -1,0 +1,36 @@
+session_name: gcs_session
+socket_name: gcs_socket
+environment:
+  ROS_DOMAIN_ID: "23"
+pre_window:
+windows:
+- window_name: gcs
+  layout: tiled
+  panes:
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - rviz2 -d /root/ros2_ws/src/pkg/babyk_drone_manager/rviz/flight.rviz
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /fsm/current_state
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /vio_health_status
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /move_manager/status
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /path_planner/status
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /trajectory_interpolator/status
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 topic echo /seed_pdt_drone/state
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 run babyk_drone_manager PX4_odom_publisher.py
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - clear

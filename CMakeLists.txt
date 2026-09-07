@@ -161,6 +161,12 @@ install(TARGETS move_manager_node autonomous_test_node warehouse_test_node sewer
   DESTINATION lib/${PROJECT_NAME}
 )
 
+# Install Python scripts
+install(PROGRAMS 
+  scripts/PX4_odom_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 
 # Install launch and config files
 install(DIRECTORY 
