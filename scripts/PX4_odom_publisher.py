@@ -33,8 +33,17 @@ class PX4VisualOdomPublisher(Node):
         self.M_flu2frd = self.M_frd2flu.T
         self.optitrack2enu = np.array([[1,0,0],[0,0,-1],[0,1,0]])
 
-        # Profilo QoS del tipo "sensor_data"
-        self.qos = QoSProfile(
+        # Profilo QoS compatibile con il bridge uXRCE-DDS di PX4
+        # /fmu/in/ topics richiedono RELIABLE dal publisher, BEST_EFFORT causerebbe incompatibilita'
+        self.qos_pub = QoSProfile(
+            depth=5,
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            durability=DurabilityPolicy.VOLATILE
+        )
+
+        # QoS per la subscription (OptiTrack pubblica BEST_EFFORT)
+        self.qos_sub = QoSProfile(
             depth=5,
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
@@ -43,15 +52,15 @@ class PX4VisualOdomPublisher(Node):
 
         self.optitrack_odom_sub = self.create_subscription(
             Odometry, 
-            '/optitrack/body_2/odometry', 
+            '/optitrack/body_3/odometry', 
             self.optitrack_odom_cb, 
-            self.qos
+            self.qos_sub
         )
         
         self.visual_odom_pub = self.create_publisher(
             VehicleOdometry, 
             '/fmu/in/vehicle_visual_odometry', 
-            self.qos
+            self.qos_pub
         )
 
     def optitrack_odom_cb(self, msg: Odometry):

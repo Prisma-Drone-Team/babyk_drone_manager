@@ -110,7 +110,7 @@ Visualization Manager:
       Radius: 0.03
       Shaft Diameter: 0.1
       Shaft Length: 0.1
-      Topic: /base_link_path
+      Topic: /ov_msckf/pathimu
       Unreliable: false
       Value: true
 
@@ -119,29 +119,17 @@ Visualization Manager:
       Max Value: 1
       Median window: 5
       Min Value: 0
-      Name: Cam0 Image
+      Name: OpenVINS Tracked Features
       Normalize Range: true
       Queue Size: 10
-      Topic: /cam0/fisheye1/image_raw
-      Unreliable: false
-      Value: true
-
-    - Class: rviz_default_plugins/Image
-      Enabled: true
-      Max Value: 1
-      Median window: 5
-      Min Value: 0
-      Name: Cam1 Image
-      Normalize Range: true
-      Queue Size: 10
-      Topic: /cam1/fisheye1/image_raw
+      Topic: /ov_msckf/trackhist
       Unreliable: false
       Value: true
 
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: map
+    Fixed Frame: global
     Frame Rate: 30
   Name: root
   Tools:

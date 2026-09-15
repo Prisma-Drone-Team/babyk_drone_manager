@@ -4,3 +4,6 @@ utils/mpc_core.yml
 
 # Ignore scripts and plotjuggler
 plotjuggler/
+flight_logs/*
+!flight_logs/*.py
+old_logs/

@@ -1,0 +1,22 @@
+session_name: tune_vins_session
+socket_name: tune_vins_socket
+environment:
+  ROS_DOMAIN_ID: "56"
+windows:
+- window_name: tuning
+  layout: tiled
+  panes:
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - echo "Lancio OpenVINS..."
+        - ros2 launch ov_msckf subscribe.launch.py config_path:=/root/ros2_ws/src/pkg/open_vins/config/tune/estimator_config.yaml max_cameras:=2 use_sim_time:=false use_approximate_sync:=true topic_camera0:=/cam1/fisheye1/image_raw topic_camera1:=/cam1/fisheye2/image_raw use_stereo:=false topic_imu:=/cam1/imu rviz_enable:=false
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - echo "Lancio RViz2..."
+        - rviz2 -d /root/ros2_ws/src/pkg/babyk_drone_manager/rviz/flight.rviz
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - echo "Premi Invio qui sotto per avviare il bag:"
+        - ros2 bag play src/pkg/vio_recovery/utils/rosbag2_2026_09_08-17_06_23 --loop
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash

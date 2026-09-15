@@ -126,6 +126,21 @@ ament_target_dependencies(exploration_node
 )
 target_link_libraries(exploration_node ${OCTOMAP_LIBRARIES})
 
+add_executable(flight_data_logger src/flight_data_logger.cpp)
+
+ament_target_dependencies(flight_data_logger
+  rclcpp
+  std_msgs
+  geometry_msgs
+  nav_msgs
+  px4_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  octomap_msgs
+)
+target_link_libraries(flight_data_logger ${OCTOMAP_LIBRARIES})
+
 target_include_directories(move_manager_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -157,7 +172,7 @@ target_link_libraries(move_manager_node
 )
 
 # Install targets
-install(TARGETS move_manager_node autonomous_test_node warehouse_test_node sewer_autonomous_test_node exploration_node vio_aligner_node open_box
+install(TARGETS move_manager_node autonomous_test_node warehouse_test_node sewer_autonomous_test_node exploration_node vio_aligner_node open_box flight_data_logger
   DESTINATION lib/${PROJECT_NAME}
 )
 
