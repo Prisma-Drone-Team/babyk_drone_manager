@@ -64,7 +64,7 @@ def generate_launch_description():
         executable='static_transform_publisher',
         name='static_tf_pub_drone_map',
         arguments=[
-            '2.72', '6.15', '0',    # translation
+            '0', '0', '0',    # translation
             '0', '0', '0', '1',  # quaternion (no rotation)
             'map',            # parent frame
             'drone/map'       # child frame

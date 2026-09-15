@@ -16,7 +16,7 @@ move_manager_node:
     planned_path_topic: "/trajectory_path"
     
     # Sensor input
-    odometry_topic: "/px4/odometry/out"
+    odometry_topic: "/px4/odometry/out"  # OptiTrack odometry from PX4 via px4_tf_pub
     joy_topic: "/joy"
     
     # Flight parameters

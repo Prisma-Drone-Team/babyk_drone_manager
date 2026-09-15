@@ -1,0 +1,39 @@
+session_name: flight_session_back
+environment:
+  ROS_DOMAIN_ID: "23"
+options:
+  mouse: 'on'
+
+shell_command_before:
+  - source /root/ros2_ws/install/setup.bash
+
+windows:
+  - window_name: main_nodes
+    layout: tiled
+    panes:
+      # --- [Pane 1] VIO (OpenVINS) Back Camera ---
+      - shell_command:
+          - sleep 3
+          - ros2 launch openvins_bringup launch_openvins_back.launch.py  # config_path:=/root/ros2_ws/src/pkg/openvins_bringup/config/new_kalibr/estimator_config_back.yaml
+      
+      # --- [Pane 2] Odometry Transform: cam odometry → base_link ENU ---
+      - shell_command:
+          - sleep 6
+          - ros2 run odometry_tracker odom_to_baselink_enu_direct
+
+      # --- [Pane 3] PX4 VIO Bridge: ENU → NED ---
+      - shell_command:
+          - sleep 8
+          - ros2 run drone_odometry px4_tf_pub --ros-args -p px4_odom_frame_id:=odom -p vio_desired_parent_frame_id:=odom -p publish_tf:=false -p odom_child_is_not_base_link:=false
+
+      # --- [Pane 4] MicroXRCE-DDS Agent ---
+      - shell_command:
+          - sleep 10
+          - MicroXRCEAgent serial --dev /dev/ttyUSB0 -b 921600
+
+  - window_name: drivers
+    layout: tiled
+    panes:
+      # --- [Pane 1] Back Camera Driver (cam1) ONLY ---
+      - shell_command:
+          - ros2 launch realsense2_camera rs_launch.py camera_name:=cam1 serial_no:="'146322110430'" enable_fisheye1:=true enable_fisheye2:=true enable_pose:=false enable_gyro:=true enable_accel:=true unite_imu_method:="2" publish_tf:=false tf_publish_rate:=0.0

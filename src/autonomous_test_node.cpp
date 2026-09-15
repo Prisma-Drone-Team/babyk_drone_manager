@@ -326,8 +326,7 @@ void AutonomousTestNode::send_explore_flyto()
     auto goal_opt = find_frontier_goal(should_return);
     
     if (should_return) {
-        RCLCPP_WARN(this->get_logger(), "Exploration logic determined space is insufficient. Returning to initial point (goal1).");
-        send_command("flyto(goal1)");
+        RCLCPP_WARN(this->get_logger(), "Exploration logic determined space is insufficient. Waiting for free space...");
         return;
     }
     

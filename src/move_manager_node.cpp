@@ -708,15 +708,18 @@ void MoveManagerNode::handle_takeoff_command(const std::vector<std::string>& /*p
     }
 
     if (!tf_ok) {
-        RCLCPP_WARN(get_logger(), "TF %s->%s unavailable. Falling back to current odometry pose for blind takeoff to trigger OpenVINS initialization.",
+        RCLCPP_WARN(get_logger(), "TF %s->%s unavailable. Falling back to current odometry pose for blind takeoff.",
                     parent_frame_.c_str(), base_link_frame_.c_str());
         std::lock_guard<std::mutex> lock(state_mutex_);
         takeoff_pose = current_pose_;
     }
 
-    RCLCPP_INFO(get_logger(), "Takeoff using TF (base_link in %s): [%.3f, %.3f]",
-                parent_frame_.c_str(), takeoff_pose.position.x, takeoff_pose.position.y);
+    // Forza INCONDIZIONATAMENTE X a -1.0 ignorando eventuali errori del TF
+    takeoff_pose.position.x = -1.0;
     takeoff_pose.position.z += takeoff_altitude_;  // Relative altitude above current position
+
+    RCLCPP_INFO(get_logger(), "🚀 TAKEOFF COMMAND: [%.3f, %.3f, %.3f] in %s",
+                takeoff_pose.position.x, takeoff_pose.position.y, takeoff_pose.position.z, parent_frame_.c_str());
 
     // Create SINGLE waypoint path for takeoff to avoid yaw calculation
     nav_msgs::msg::Path takeoff_path;

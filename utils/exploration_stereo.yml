@@ -1,0 +1,127 @@
+session_name: exploration_stereo
+environment:
+  ROS_DOMAIN_ID: "23"
+options:
+  mouse: 'on'
+
+shell_command_before:
+  - source /root/ros2_ws/install/setup.bash
+
+windows:
+  # ============================================================
+  # WINDOW 1: Core VIO Pipeline (dual camera - front cam0 + back cam1)
+  # ============================================================
+  - window_name: vio_pipeline
+    layout: tiled
+    panes:
+      # --- [Pane 1] VIO (OpenVINS) Dual Camera ---
+      - shell_command:
+          - sleep 3
+          - ros2 launch openvins_bringup launch_openvins_multicam.launch.py
+
+      # --- [Pane 2] Odometry Transform: cam odometry → base_link ENU ---
+      - shell_command:
+          - sleep 6
+          - ros2 launch odometry_tracker odometry_tracker_enu_direct.launch.py input_odom_topic:=/ov_msckf/odomimu
+
+      # --- [Pane 3] MicroXRCE-DDS Agent ---
+      - shell_command:
+          - sleep 10
+          - MicroXRCEAgent serial --dev /dev/ttyUSB0 -b 921600
+
+      # --- [Pane 4] Path visualizer ---
+      - shell_command:
+          - sleep 12
+          - ros2 run odometry_tracker base_link_path_pub --ros-args -p use_sim_time:=false
+
+  # ============================================================
+  # WINDOW 2: Drivers (both cameras)
+  # ============================================================
+  - window_name: drivers
+    layout: tiled
+    panes:
+      # --- [Pane 1] Front Camera Driver (cam0) ---
+      - shell_command:
+          - ros2 launch realsense2_camera rs_launch.py camera_name:=cam0 serial_no:="'142122110055'" enable_fisheye1:=true enable_fisheye2:=true enable_pose:=false enable_gyro:=true enable_accel:=true unite_imu_method:="2" publish_tf:=false tf_publish_rate:=0.0
+
+      # --- [Pane 2] Back Camera Driver (cam1) ---
+      - shell_command:
+          - ros2 launch realsense2_camera rs_launch.py camera_name:=cam1 serial_no:="'146322110430'" enable_fisheye1:=true enable_fisheye2:=true enable_pose:=false enable_gyro:=true enable_accel:=true unite_imu_method:="2" publish_tf:=false tf_publish_rate:=0.0
+
+  # ============================================================
+  # WINDOW 3: Path Planning & Exploration
+  # ============================================================
+  - window_name: path_planning
+    layout: tiled
+    panes:
+      # --- [Pane 1] Trajectory Interpolator ---
+      - shell_command:
+          - sleep 18
+          - ros2 run traj_interp trajectory_interpolator --ros-args --params-file /root/ros2_ws/src/pkg/traj_interp/config/trajectory_interpolator_flight.yaml -p use_sim_time:=false
+
+      # --- [Pane 2] Move Manager ---
+      - shell_command:
+          - sleep 20
+          - ros2 launch babyk_drone_manager move_manager.launch.py config_file:=/root/ros2_ws/src/pkg/babyk_drone_manager/config/move_manager_params.yaml simulation:=false use_sim_time:=false
+
+      # --- [Pane 3] Path Planner ---
+      - shell_command:
+          - sleep 22
+          - ros2 launch path_planner path_planner.launch.py config_file:=/root/ros2_ws/src/pkg/path_planner/config/path_planner_flight.yaml use_sim_time:=false
+
+      # --- [Pane 4] Goal TF Static Publishers ---
+      - shell_command:
+          - sleep 24
+          - ros2 launch babyk_drone_manager tf_static_flight.launch.py use_sim_time:=false
+
+      # --- [Pane 5] VIO Mapper ---
+      - shell_command:
+          - sleep 26
+          - ros2 launch vio_mapping mapper.launch.py use_sim_time:=false virtual_range:=8.0 odom_topic:=/odometry/filtered
+
+      # --- [Pane 6] Autonomous Forward Node (simple: go forward N meters) ---
+      - shell_command:
+          - sleep 28
+          - ros2 launch babyk_drone_manager autonomous_forward_node.launch.py simulation:=false use_sim_time:=false
+
+  # ============================================================
+  # WINDOW 4: Recovery
+  # ============================================================
+  - window_name: recovery
+    layout: tiled
+    panes:
+      # --- [Pane 1] VIO Recovery ---
+      - shell_command:
+          - sleep 30
+          - ros2 launch vio_recovery launch_recovery.launch.py use_sim_time:=false odom_topic:=/odometry/filtered
+
+      # --- [Pane 2] FSM State ---
+      - shell_command:
+          - sleep 32
+          - ros2 topic echo /fsm/current_state
+
+      # --- [Pane 3] VIO Health ---
+      - shell_command:
+          - sleep 32
+          - ros2 topic echo /vio_health_status
+
+  # ============================================================
+  # WINDOW 5: Monitoring
+  # ============================================================
+  - window_name: monitoring
+    layout: tiled
+    panes:
+      # --- [Pane 1] Move Manager Status ---
+      - shell_command:
+          - sleep 35
+          - ros2 topic echo /move_manager/status
+
+      # --- [Pane 2] Path Planner Status ---
+      - shell_command:
+          - sleep 35
+          - ros2 topic echo /path_planner/status
+
+      # --- [Pane 3] Trajectory Interpolator Status ---
+      - shell_command:
+          - sleep 35
+          - ros2 topic echo /trajectory_interpolator/status

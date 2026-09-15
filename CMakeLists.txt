@@ -71,6 +71,20 @@ ament_target_dependencies(autonomous_test_node
 target_include_directories(autonomous_test_node PUBLIC ${EIGEN3_INCLUDE_DIRS})
 target_link_libraries(autonomous_test_node Eigen3::Eigen)
 
+add_executable(autonomous_forward_node src/autonomous_forward_node.cpp)
+ament_target_dependencies(autonomous_forward_node
+  rclcpp
+  std_msgs
+  geometry_msgs
+  nav_msgs
+  tf2_ros
+  px4_msgs
+)
+target_include_directories(autonomous_forward_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
 add_executable(warehouse_test_node src/warehouse_test_node.cpp)
 
 ament_target_dependencies(warehouse_test_node 
@@ -157,7 +171,7 @@ target_link_libraries(move_manager_node
 )
 
 # Install targets
-install(TARGETS move_manager_node autonomous_test_node warehouse_test_node sewer_autonomous_test_node exploration_node vio_aligner_node open_box
+install(TARGETS move_manager_node autonomous_test_node autonomous_forward_node warehouse_test_node sewer_autonomous_test_node exploration_node vio_aligner_node open_box
   DESTINATION lib/${PROJECT_NAME}
 )
 
