@@ -12,27 +12,40 @@ The `babyk_drone_manager` is the main package that manages the entire drone syst
 babyk_drone_manager/
 ├── src/
 │   ├── move_manager_node.cpp          # Movement management node
-│   └── autonomous_test_node.cpp       # Autonomous testing node
-├── include/babyk_drone_manager/
-│   ├── move_manager_node.h            # Move manager header
-│   └── autonomous_test_node.h         # Autonomous test node header
-├── launch/                            # Centralized launch files
-│   ├── move_manager.launch.py         # Movement management
-│   ├── autonomous_test_node.launch.py # Autonomous testing
-│   ├── full_system.launch.py          # Complete system
-│   ├── rtabmap_sim.launch.py          # SLAM simulation
-│   ├── tf_static_sim.launch.py        # Static TF simulation
-│   ├── tf_static_flight.launch.py     # Static TF real flight
-│   └── px4_tf_pub_simulation.launch.py # PX4 TF simulation
-├── config/                            # Centralized configurations
-│   ├── move_manager_params.yaml       # Real flight parameters
-│   ├── move_manager_simulation.yaml   # Simulation parameters
-│   ├── autonomous_test_node_params.yaml # Test node simulation config
-│   └── autonomous_test_node_flight.yaml # Test node real flight config
+│   ├── autonomous_test_node.cpp       # Fixed-waypoint autonomous testing
+│   ├── exploration_node.cpp           # Exploration for corridor/sewer scenarios
+│   ├── warehouse_test_node.cpp        # Frontier exploration (warehouse scenario)
+│   ├── flight_data_logger.cpp         # Flight data logger (VIO, GT, PX4, eigenvalues…)
+│   ├── sewer_autonomous_test_node.cpp # Sewer-specific test node
+│   └── open_box.cpp                   # Open-box scenario test node
+├── scripts/
+│   ├── PX4_odom_publisher.py          # Feeds OptiTrack odometry into PX4 as VIO
+│   └── run_batch_simulation.py        # Batch headless simulation runner
+├── flight_logs/                       # Auto-created by flight_data_logger at shutdown
+│   ├── plot_results.py                # Post-flight plot generation script
+│   └── move_logs.py                   # Moves logs to named subdirectories
+├── launch/
+│   ├── move_manager.launch.py
+│   ├── autonomous_test_node.launch.py
+│   ├── warehouse_test_node.launch.py
+│   ├── tf_static_sim.launch.py
+│   ├── tf_static_flight.launch.py
+│   └── px4_tf_pub_simulation.launch.py
+├── config/
+│   ├── move_manager_params.yaml
+│   ├── move_manager_simulation.yaml
+│   └── autonomous_test_node_params.yaml
 ├── rviz/
-│   └── leo.rviz                       # RViz configuration
-├── simulation.yml                     # TMUX simulation (with autonomous testing)
-└── flight.yml                        # TMUX real flight (with autonomous testing)
+│   └── flight.rviz                    # RViz configuration for real flights
+└── utils/                             # TMUX session files
+    ├── gcs.yml                        # GCS session (RViz + OptiTrack + monitors)
+    ├── hardware_exploration.yml       # Full onboard hardware stack
+    ├── warehouse_exploration.yml      # Warehouse frontier exploration (simulation)
+    ├── exploration.yml                # Corridor exploration (simulation)
+    ├── sewer_exploration.yml          # Sewer exploration (simulation)
+    ├── flight.yml                     # Full real-flight session
+    ├── simulation.yml                 # Generic simulation session
+    └── tune_vins.yml                  # OpenVINS calibration/tuning session
 ```
 
 ## Main Components
@@ -169,41 +182,47 @@ ros2 launch babyk_drone_manager tf_static_flight.launch.py use_sim_time:=false
 
 ## TMUX Configurations
 
-### Complete Simulation
+All TMUX session files are located in `utils/`. Launch with `tmuxp load` from `~/ros2_ws`.
+
+### ✈️ Real Flight — GCS (laptop)
 ```bash
-tmuxp load simulation.yml
+tmuxp load src/pkg/babyk_drone_manager/utils/gcs.yml
 ```
+Ground Control Station: launches RViz, OptiTrack driver (`mocap2_driver`), flight data logger, and topic monitors.
 
-**System started**:
-- PX4 SITL + Gazebo
-- MicroXRCE Agent
-- Gazebo-ROS Bridge
-- RTABMap SLAM
-- RViz
-- TF Publishers
-- Move Manager
-- Path Planner
-- Trajectory Interpolator
-- **Autonomous Test Node** (sends random commands)
-- PlotJuggler
-
-**Autonomous Testing**: The system automatically starts sending random commands for continuous testing of all drone functions.
-
-### Real Flight
+### ✈️ Real Flight — Onboard computer
 ```bash
-tmuxp load flight.yml
+cd ~/ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/hardware_exploration.yml
 ```
+Full onboard stack: PX4 uXRCE-DDS bridge, OpenVINS, VIO Mapping, Move Manager, Path Planner, Trajectory Interpolator, and VIO Recovery FSM.
 
-**System started**:
-- Move Manager
-- Path Planner  
-- Trajectory Interpolator
-- SLAM (Leonardo)
-- **TF Static Publishers** (goal1-7 for real arena)
-- **Autonomous Test Node** (conservative timing for real flight)
-- RViz
+### 🏭 Warehouse Exploration (simulation)
+```bash
+cd ~/ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/warehouse_exploration.yml
+```
+Launches PX4 SITL, OpenVINS (dual camera), VIO Mapping, Move Manager, Path Planner, Trajectory Interpolator, VIO Recovery FSM, and the **Warehouse Test Node** for frontier-based autonomous exploration.
 
-**Real Arena Configuration**: Optimized for small arena (5x6 meters) with goals positioned safely within bounds.
+### 🏢 Corridor Exploration (simulation)
+```bash
+cd ~/ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/exploration.yml
+```
+Fixed-waypoint exploration in a narrow corridor. Includes VIO Recovery.
+
+### 🕳️ Sewer Exploration (simulation)
+```bash
+cd ~/ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/sewer_exploration.yml
+```
+Like corridor, but configured for a dark textureless pipe with aggressive recovery parameters.
+
+### 🔧 OpenVINS Tuning
+```bash
+tmuxp load src/pkg/babyk_drone_manager/utils/tune_vins.yml
+```
+Minimal session for calibrating and tuning OpenVINS on real hardware.
 
 ## 🛡️ Safety Parameters
 
@@ -328,8 +347,10 @@ The `babyk_drone_manager` coordinates:
 
 1. **Path Planner** (`path_planner`) - Path planning with OMPL+FCL
 2. **Trajectory Interpolator** (`traj_interp`) - Interpolation and trajectory resampling
-3. **Drone Odometry** (`drone_odometry2`) - TF publishing and PX4 odometry
-4. **RTABMap** - Visual SLAM for environmental mapping
+3. **Drone Odometry** (`drone_odometry`) - TF publishing and PX4 odometry
+4. **VIO Recovery** (`vio_recovery`) - VIO health monitoring and tactile recovery FSM
+5. **RTABMap** - Visual SLAM for environmental mapping
+6. **OptiTrack** (`optitrack_listener2`) - Motion capture ground truth (real flight)
 
 ## System States
 
@@ -374,7 +395,9 @@ The `babyk_drone_manager` coordinates:
 **Required Custom Packages** (for complete flight stack):
 - `path_planner` - Path planning with OMPL+FCL
 - `traj_interp` - Trajectory interpolation and resampling
-- `drone_odometry2` - TF publishing and PX4 odometry integration
+- `drone_odometry` - TF publishing and PX4 odometry integration
+- `vio_recovery` - VIO health monitoring and tactile recovery FSM
+- `optitrack_listener2` - OptiTrack NatNet SDK driver (real flight only)
 
 **Optional Packages**:
 - `joy` - Enable usb joystick connection 
@@ -386,26 +409,20 @@ The `babyk_drone_manager` coordinates:
 ```bash
 # Check that all packages are present
 ls ~/ros2_ws/src/pkg/
-# Should contain: babyk_drone_manager, path_planner, traj_interp, drone_odometry2
+# Should contain: babyk_drone_manager, path_planner, traj_interp, drone_odometry, vio_recovery
 ```
 
 **Build complete flight stack**:
 ```bash
-# Build all required packages
 cd ~/ros2_ws
-colcon build --packages-select babyk_drone_manager path_planner traj_interp drone_odometry2
-
-# Source workspace
+colcon build --packages-select \
+  babyk_drone_manager path_planner traj_interp \
+  drone_odometry vio_recovery optitrack_listener2
 source install/setup.bash
-
-# Verify installation
-ros2 launch babyk_drone_manager move_manager.launch.py --help
-ros2 launch babyk_drone_manager autonomous_test_node.launch.py --help
 ```
 
 **Individual package build**:
 ```bash
-# Build only babyk_drone_manager (requires other packages to be built first)
 cd ~/ros2_ws
 colcon build --packages-select babyk_drone_manager
 source install/setup.bash
