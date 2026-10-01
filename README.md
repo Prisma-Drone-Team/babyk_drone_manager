@@ -12,27 +12,40 @@ The `babyk_drone_manager` is the main package that manages the entire drone syst
 babyk_drone_manager/
 ├── src/
 │   ├── move_manager_node.cpp          # Movement management node
-│   └── autonomous_test_node.cpp       # Autonomous testing node
-├── include/babyk_drone_manager/
-│   ├── move_manager_node.h            # Move manager header
-│   └── autonomous_test_node.h         # Autonomous test node header
-├── launch/                            # Centralized launch files
-│   ├── move_manager.launch.py         # Movement management
-│   ├── autonomous_test_node.launch.py # Autonomous testing
-│   ├── full_system.launch.py          # Complete system
-│   ├── rtabmap_sim.launch.py          # SLAM simulation
-│   ├── tf_static_sim.launch.py        # Static TF simulation
-│   ├── tf_static_flight.launch.py     # Static TF real flight
-│   └── px4_tf_pub_simulation.launch.py # PX4 TF simulation
-├── config/                            # Centralized configurations
-│   ├── move_manager_params.yaml       # Real flight parameters
-│   ├── move_manager_simulation.yaml   # Simulation parameters
-│   ├── autonomous_test_node_params.yaml # Test node simulation config
-│   └── autonomous_test_node_flight.yaml # Test node real flight config
+│   ├── autonomous_test_node.cpp       # Fixed-waypoint autonomous testing (simple arenas)
+│   ├── exploration_node.cpp           # Exploration node for corridor/sewer scenarios
+│   ├── warehouse_test_node.cpp        # Frontier exploration node (warehouse scenario)
+│   ├── flight_data_logger.cpp         # Flight data logger (VIO, GT, PX4, eigenvalues…)
+│   ├── vio_aligner.cpp                # PI controller for yaw alignment during recovery
+│   ├── sewer_autonomous_test_node.cpp # Sewer-specific test node
+│   └── open_box.cpp                   # Open-box scenario test node
+├── scripts/
+│   ├── PX4_odom_publisher.py          # Feeds OptiTrack odometry into PX4 as VIO
+│   └── run_batch_simulation.py        # Batch headless simulation runner
+├── flight_logs/                       # Auto-created by flight_data_logger at shutdown
+│   ├── plot_results.py                # Post-flight plot generation script
+│   └── move_logs.py                   # Moves logs to named subdirectories
+├── launch/                            # Launch files
+│   ├── move_manager.launch.py
+│   ├── autonomous_test_node.launch.py
+│   ├── warehouse_test_node.launch.py
+│   ├── tf_static_sim.launch.py
+│   ├── tf_static_flight.launch.py
+│   └── px4_tf_pub_simulation.launch.py
+├── config/
+│   ├── move_manager_params.yaml
+│   ├── move_manager_simulation.yaml
+│   └── autonomous_test_node_params.yaml
 ├── rviz/
-│   └── leo.rviz                       # RViz configuration
-├── simulation.yml                     # TMUX simulation (with autonomous testing)
-└── flight.yml                        # TMUX real flight (with autonomous testing)
+│   └── flight.rviz                    # RViz configuration for real flights
+└── utils/                             # TMUX session files
+    ├── warehouse_exploration.yml      # Warehouse frontier exploration (simulation)
+    ├── exploration.yml                # Corridor exploration (simulation)
+    ├── sewer_exploration.yml          # Sewer exploration (simulation)
+    ├── gcs.yml                        # GCS session for real flights
+    ├── flight.yml                     # Full real-flight session
+    ├── simulation.yml                 # Generic simulation session
+    └── tune_vins.yml                  # OpenVINS calibration/tuning session
 ```
 
 ## Main Components
@@ -169,41 +182,40 @@ ros2 launch babyk_drone_manager tf_static_flight.launch.py use_sim_time:=false
 
 ## TMUX Configurations
 
-### Complete Simulation
+All TMUX session files are located in `utils/`. Launch with `tmuxp load` from inside the Docker container.
+
+### 🏭 Warehouse Exploration (simulation)
 ```bash
-tmuxp load simulation.yml
+cd ~/ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/warehouse_exploration.yml
 ```
+Launches PX4 SITL, OpenVINS (dual camera), VIO Mapping, Move Manager, Path Planner, Trajectory Interpolator, VIO Recovery FSM, and the **Warehouse Test Node** for frontier-based autonomous exploration.
 
-**System started**:
-- PX4 SITL + Gazebo
-- MicroXRCE Agent
-- Gazebo-ROS Bridge
-- RTABMap SLAM
-- RViz
-- TF Publishers
-- Move Manager
-- Path Planner
-- Trajectory Interpolator
-- **Autonomous Test Node** (sends random commands)
-- PlotJuggler
-
-**Autonomous Testing**: The system automatically starts sending random commands for continuous testing of all drone functions.
-
-### Real Flight
+### 🏢 Corridor Exploration (simulation)
 ```bash
-tmuxp load flight.yml
+cd ~/ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/exploration.yml
 ```
+Fixed-waypoint exploration in a narrow corridor. Includes VIO Recovery.
 
-**System started**:
-- Move Manager
-- Path Planner  
-- Trajectory Interpolator
-- SLAM (Leonardo)
-- **TF Static Publishers** (goal1-7 for real arena)
-- **Autonomous Test Node** (conservative timing for real flight)
-- RViz
+### 🕳️ Sewer Exploration (simulation)
+```bash
+cd ~/ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/sewer_exploration.yml
+```
+Like corridor, but configured for a dark textureless pipe with aggressive recovery parameters.
 
-**Real Arena Configuration**: Optimized for small arena (5x6 meters) with goals positioned safely within bounds.
+### ✈️ Real Flight GCS
+```bash
+tmuxp load src/pkg/babyk_drone_manager/utils/gcs.yml
+```
+Ground Control Station session: launches RViz, OptiTrack driver, flight data logger, and topic monitors.
+
+### 🔧 OpenVINS Tuning
+```bash
+tmuxp load src/pkg/babyk_drone_manager/utils/tune_vins.yml
+```
+Minimal session for calibrating and tuning OpenVINS in real hardware.
 
 ## 🛡️ Safety Parameters
 

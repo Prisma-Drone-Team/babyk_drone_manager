@@ -573,7 +573,7 @@ def main():
     myPlot(t_vio, fig_pos_data, ["X [m]", "Y [m]", "Z [m]"],
            "Position Tracking (ENU Frame)", ncols=3, use_tex=args.tex)
 
-    if args.all_plots:
+    if True: # Show all plots by default
 
         # Figure 2: Orientation tracking
         fig_rpy_data = [

@@ -26,16 +26,10 @@ windows:
     - shell_command:
         - sleep 1
         - cd ~/ros2_ws && source install/setup.bash
-        # In Gazebo Harmonic, camera_info topic = /<camera_topic>/camera_info (NOT <camera_topic>_info)
-        # IMU e immagini prima (critici per OpenVINS), camera_info e optional in fondo
         - ros2 run ros_gz_bridge parameter_bridge /world/sewer/model/babyk_sewer_0/link/base_link/sensor/imu_sensor/imu@sensor_msgs/msg/Imu[gz.msgs.IMU /camera_down@sensor_msgs/msg/Image[gz.msgs.Image /camera_up@sensor_msgs/msg/Image[gz.msgs.Image /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock /model/babyk_sewer_0/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry /camera_down/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo /camera_up/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
-        # NOTE: imu→cam0 and imu→cam1 are published by OpenVINS from kalibr_imucam_chain.yaml
-        # (publish_calibration_tf=true by default). Do NOT add duplicate static_transform_publishers
-        # for these frames or TF2 will have two conflicting publishers for the same transform.
-
     - shell_command:
         - sleep 10
         - cd ~/ros2_ws && source install/setup.bash
@@ -74,7 +68,7 @@ windows:
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch vio_mapping mapper.launch.py use_sim_time:=true virtual_range:=8.0 scenario:=sewer
     - shell_command:
-        - sleep 25  # OpenVINS needs time to initialize static IMU before arming
+        - sleep 25
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 launch babyk_drone_manager sewer_autonomous_test_node.launch.py simulation:=true
 
@@ -98,10 +92,6 @@ windows:
         - sleep 20
         - cd ~/ros2_ws && source install/setup.bash
         - ros2 topic echo /trajectory_interpolator/status
-    - shell_command:
-        - sleep 20
-        - cd ~/ros2_ws && source install/setup.bash
-        - python3 src/pkg/babyk_drone_manager/scripts/debug_takeoff.py --ros-args -p use_sim_time:=true
 
 - window_name: recovery
   layout: tiled

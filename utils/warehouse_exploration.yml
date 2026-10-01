@@ -9,7 +9,7 @@ windows:
   panes:
     - shell_command:
         - cd ~/PX4_neabotics
-        - PX4_GZ_WORLD=leonardo_race make px4_sitl gz_baby_k  HEADLESS:=1 # For standard PX4: use 'make px4_sitl gz_x500_depth'
+        - PX4_GZ_WORLD=leonardo_race make px4_sitl gz_baby_k  #HEADLESS:=1 # For standard PX4: use 'make px4_sitl gz_x500_depth'
     - shell_command:
         - sleep 35
         - cd ~/ros2_ws && source install/setup.bash
@@ -30,12 +30,12 @@ windows:
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch move_manager move_manager.launch.py config_file:=config/move_manager_simulation.yaml --ros-args -p use_sim_time:=true
+        # (move_manager is now launched later in the path_planning window)
 
     - shell_command:
         - sleep 15
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch ov_msckf subscribe.launch.py config_path:=/root/ros2_ws/src/pkg/open_vins/config/baby_k/estimator_config.yaml max_cameras:=2 use_sim_time:=true use_approximate_sync:=true topic_camera0:=/camera topic_camera1:=/camera_rear use_stereo:=false topic_imu:=/world/leonardo_race/model/baby_k_0/link/base_link/sensor/imu_sensor/imu verbosity:="INFO" rviz_enable:=true
+        - ros2 launch ov_msckf subscribe.launch.py config_path:=/root/ros2_ws/src/pkg/open_vins/config/baby_k_warehouse/estimator_config.yaml max_cameras:=2 use_sim_time:=true use_approximate_sync:=true topic_camera0:=/camera topic_camera1:=/camera_rear use_stereo:=false topic_imu:=/world/leonardo_race/model/baby_k_0/link/base_link/sensor/imu_sensor/imu verbosity:="INFO" rviz_enable:=false
     - shell_command:
         - sleep 2
         - cd ~/ros2_ws && source install/setup.bash
@@ -112,4 +112,4 @@ windows:
     - shell_command:
         - sleep 26
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch vio_recovery launch_recovery.launch.py use_sim_time:=true
+        - ros2 launch vio_recovery launch_warehouse_recovery.launch.py use_sim_time:=true
